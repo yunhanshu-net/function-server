@@ -1,43 +1,89 @@
-// main.go
-// API服务器主入口
 package main
 
 import (
+	"context"
+	"errors"
+	"fmt"
 	"log"
+	"net/http"
+	"os"
+	"os/signal"
+	"syscall"
+	"time"
 
-	"github.com/gin-gonic/gin"
+	"github.com/yunhanshu-net/api-server/pkg/config"
+	"github.com/yunhanshu-net/api-server/pkg/db"
+	"github.com/yunhanshu-net/api-server/pkg/logger"
+	"github.com/yunhanshu-net/api-server/router"
+	"github.com/yunhanshu-net/api-server/service"
 )
 
 func main() {
+	ctx := context.Background()
+	// 加载配置
+	if err := config.Init(); err != nil {
+		log.Fatalf("初始化配置失败: %v", err)
+	}
+
+	// 初始化日志
+	if err := logger.Init(config.Get().LogConfig); err != nil {
+		log.Fatalf("初始化日志失败: %v", err)
+	}
+
 	// 初始化数据库连接
+	if err := db.Init(config.Get().DBConfig); err != nil {
+		logger.Fatal(ctx, "初始化数据库连接失败", err)
+	}
 
-	// 初始化Gin
-	r := gin.Default()
+	// 初始化RuncherService
+	runcherOptions := service.RuncherOptions{
+		NatsURL: config.Get().RuncherConfig.NatsURL,
+		Timeout: time.Duration(config.Get().RuncherConfig.Timeout) * time.Second,
+	}
 
-	// CORS中间件
-	r.Use(func(c *gin.Context) {
-		c.Writer.Header().Set("Access-Control-Allow-Origin", "*")
-		c.Writer.Header().Set("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS")
-		c.Writer.Header().Set("Access-Control-Allow-Headers", "Origin, Content-Type, Content-Length, Accept-Encoding, X-CSRF-Token, Authorization")
+	var err error
+	runcherService, err := service.NewRuncherService(runcherOptions)
+	if err != nil {
+		logger.Error(ctx, "初始化Runcher服务失败", err)
+		// 继续执行，不要因为Runcher服务初始化失败而中断启动
+		// 这里仅记录错误，让应用可以启动，但函数执行功能将不可用
+	} else {
+		logger.Info(ctx, "Runcher服务初始化成功")
+		defer runcherService.Close()
 
-		if c.Request.Method == "OPTIONS" {
-			c.AbortWithStatus(204)
-			return
-		}
+		// 设置全局RuncherService实例
+		service.SetGlobalRuncherService(runcherService)
+	}
 
-		c.Next()
-	})
-
-	// 健康检查
-	r.GET("/ping", func(c *gin.Context) {
-		c.JSON(200, gin.H{
-			"message": "pong",
-			"status":  "healthy",
-		})
-	})
+	// 初始化路由
+	r := router.Init()
 
 	// 启动服务器
-	if err := r.Run(":8080"); err != nil {
-		log.Fatalf("服务器启动失败: %v", err)
+	addr := fmt.Sprintf(":%d", config.Get().ServerConfig.Port)
+	server := &http.Server{
+		Addr:    addr,
+		Handler: r,
 	}
+
+	// 在一个单独的goroutine中启动服务器
+	go func() {
+		logger.Info(ctx, fmt.Sprintf("服务器运行在 %s 端口", addr))
+		if err := server.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {
+			logger.Fatal(ctx, "启动服务器出错", err)
+		}
+	}()
+
+	// 等待中断信号以优雅地关闭服务器
+	quit := make(chan os.Signal, 1)
+	signal.Notify(quit, syscall.SIGINT, syscall.SIGTERM)
+	<-quit
+	logger.Info(ctx, "关闭服务器...")
+
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	if err := server.Shutdown(ctx); err != nil {
+		logger.Fatal(ctx, "服务器强制关闭", err)
+	}
+
+	logger.Info(ctx, "服务器优雅退出")
 }

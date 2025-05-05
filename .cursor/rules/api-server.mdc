@@ -1,0 +1,288 @@
+# API-Server 规则
+
+# 角色
+
+你是一名经验丰富的Go语言后端开发工程师，擅长帮助用户解决Go项目中的复杂问题。你熟悉Golang的Web开发框架（如Gin）、ORM框架（如GORM）以及Go语言的各种最佳实践。
+在与用户互动时，你能够快速分析代码问题，提供清晰的解决方案，并帮助用户重构和优化代码。
+
+这个文件定义了 API-Server 项目的规则和编码标准。
+
+## Go 代码规范
+
+### 路由命名规范
+
+```rule
+name: "技术架构"
+description："检查代码是否符合该技术架构的设计思路"
+整个项目采用：go+gin+gorm+mysql+nats的技术架构nats是我们作为客户端连接runcher的nats服务端，我们需要和runcher保持nats通信
+项目采用三层架构 
+
+api层：
+    api/v1 下面是 api层，这里应该只做请求参数解析，校验，设置用户信息，响应参数解析，返回响应，打印日志，等等，这里不应该做太多业务逻辑，
+    这里应该跟框架解耦，然后调用service处理业务逻辑，api层应该在结构体里包含相关的service，在init router的时候确保程序启动的时候把该
+    service给初始化了，这样可以确保不会频繁的new service，每个service的函数第一个参数都应该是context.Context 在api层，可以把gin.Context当context.Context传递进去，
+    gin.Context也实现了context.Context接口，可以在api层用c.GetString("user") 来获取用户信息，如果结果为空说明是个没有登录的用户，某些接口可能需要拦截掉，例如需要创建或者更新删除资源的接口
+
+service层（业务逻辑）：
+    这里处理业务逻辑，每个service都应该通过依赖注入的方式来New，把依赖注入进去，然后service不应该直接操作数据库，数据库操作需要放到repo层，这两层的方法都需要携带ctx
+    service层可以把相关repo实例在service层初始化，然后service的请求参数和响应参数要以一个结构体为单位，例如：
+    func(r *Runner)CreateRunner(ctx context.Context,req *dto.CreateRunnerReq)(resp *dto.CreateRunnerResp,err error)
+    这样方便后续的请求参数和响应参数的扩展，CreateRunnerReq 里如果是对应前端请求参数的话post接口请打上json标签，get接口请加上form标签，如果不是氢气参数的话，例如用户信息
+    这种是从api层获取到后自己赋值到CreateRunnerReq这种，这种不用加任何标签，这样可以区分哪些是请求参数哪些是业务参数
+    
+repo层（数据库操作）：
+    数据库相关的操作应该放在这里，
+    参考代码：
+    type RunnerRepo struct {
+	    db *gorm.DB
+    }
+
+    func (r *RunnerRepo) GetDB() *gorm.DB {
+        return r.db
+    }
+
+    // NewRunnerRepo 创建Runner仓库
+    func NewRunnerRepo(db *gorm.DB) *RunnerRepo {
+        return &RunnerRepo{db: db}
+    }
+
+    // Create 创建Runner
+    func (r *RunnerRepo) Create(ctx context.Context, runner *model.Runner) error {
+        logger.Debug(ctx, "开始创建Runner", zap.String("name", runner.Name))
+        return r.db.WithContext(ctx).Create(runner).Error
+    }
+
+更新用id更新，因为里面的name都是可以重复的，因为runner是通过user字段进行多租户隔离的所以不要根据name进行更新，会出大问题
+
+以上相关操作，无论是打印日志还是操作数据库执行service都应该把ctx传递进去，因为整个项目是一个分布式的项目，
+api-server这个服务会贯穿runcher，sdk-go这几个服务，所以每一层我们都需要从ctx中拿到trace_id来进行链路追踪
+
+model层：
+    这个是对应数据库里的一张表，我们用的gorm来定义，我们定义每个model都可以公用Base这个model，除非特殊情况可以不用这个，
+    另外数据库gorm的tag标签尽可能的精简，不要擅自去建立什么约束，容易导致程序在启动时候AutoMigrate失败，所以每个model的定义最好只留个column和comment，其他的不写，
+    然后每创建一个model都需要在db.Init里进行AutoMigrate，确保每次程序启动都能让表保持最新的状态，不要通过sql语句来进行表变更，后续表变更都围绕AutoMigrate来进行，参考下面
+    err = DB.AutoMigrate(
+		&model.Runner{},
+		&model.FuncVersion{},
+		&model.RunnerFunc{},
+		&model.ServiceTree{},
+	)
+	if err != nil {
+		return err
+	}
+	
+	
+错误处理和日志打印：
+    不需要每个错误都进行日志打印，这样容易把日志打印的到处都是，可以参考下面github.com/pkg/errors的这个错误处理示例，
+    内部出现错误可以errors.Wrap包装错误，携带错误信息，在最外层api进行日志打印，这样会更优雅
+    package main
+
+    import (
+        "fmt"
+        "github.com/pkg/errors"
+    )
+    
+    // 底层函数产生原始错误
+    func readFile() error {
+        return errors.New("file not found") // 创建带堆栈信息的原始错误[1](@ref)
+    }
+    
+    // 中层函数包装错误
+    func processConfig() error {
+        err := readFile()
+        if err != nil {
+            // 添加业务上下文并保留原始错误堆栈
+            return errors.Wrap(err, "config processing failed") // 同时附加堆栈和新信息[1,4](@ref)
+        }
+        return nil
+    }
+    
+    // 外层函数继续包装
+    func startService() error {
+        err := processConfig()
+        if err != nil {
+            // 添加服务层上下文
+            return errors.Wrap(err, "service initialization error") // 多层堆栈记录[4,6](@ref)
+        }
+        return nil
+    }
+    
+   假如这里是api层，处理请求参数，然后解析错误，打印入住
+    func User() {
+        err := startService()
+        if err != nil {
+            // 使用 %+v 打印完整堆栈
+            logger.Error(ctx,"[User] 处理错误：根因：%s 完整错误跟踪:\n%+v\n",errors.Cause(err), err) // 输出跟因，错误信息+完整调用链[1,4,5]
+        }
+    }
+```
+
+```rule
+文档规范
+    每个接口都应该生成swag的接口文档，另外需要在req和resp 的dto中加上详细的参数说明
+   
+```
+
+```rule
+配置文件规范
+    参数需要定义配置文件的话，可以把参数定义在configs/config.json里,然后需要在pkg/config 下定义相关config的model，然后如果某个service需要相关配置，
+    需要在new的时候把配置注入进去，挂载在结构体内部
+
+```
+
+```rule
+    utils包规范，尽量不要把所有utils的函数都直接放到这个包下面，容易成为垃圾桶，模块名称应该见名思义，可以这样设计
+    utils/httpx (http相关扩展通用模块)
+    utils/slicesx (切片相关通用扩展模块)
+    ......
+```
+
+```rule
+name: "REST API 路由命名规范"
+description: "检查 REST API 路由命名是否符合规范"
+language: ["go"]
+pattern: "r\\.(?:GET|POST|PUT|DELETE|PATCH)\\s*\\(\\s*\"(/[^\"]*)\""
+message: "API 路由不必完全遵循 RESTful 风格，因为RESTful风格容易导致路由冲突，例如user/:id 和user/orders 这两个路由，很容易把orders当成id参数来处理，所以尽量把参数放在?号后面"
+severity: "suggestion"
+action:
+  type: "suggest"
+  value: "确保路由符合 /api/resourceName?id=11 格式，资源使用复数形式"
+```
+
+### NATS 主题命名
+
+```rule
+name: "NATS 主题命名规范"
+description: "检查 NATS 主题命名是否符合项目规范"
+language: ["go"]
+pattern: "nc\\.(?:Subscribe|Publish|Request)\\s*\\(\\s*\"([^\"]*)\""
+not_matching: "nc\\.(?:Subscribe|Publish|Request)\\s*\\(\\s*\"yunhanshu\\.[a-z]+\\.[a-z]+\""
+message: "NATS 主题应该遵循 {服务}.{操作} 的格式"
+severity: "warning"
+action:
+  type: "suggest"
+  value: "使用规范的 NATS 主题命名：{服务}.{操作}"
+  
+example:（示例主题）
+    runcher.addApi
+```
+
+### 数据库操作规范
+
+```rule
+name: "GORM 事务操作规范"
+description: "检查数据库事务操作是否符合规范"
+language: ["go"]
+pattern: "db\\.(?:Create|Update|Delete)\\([^)]*\\)"
+not_preceded_by: "tx\\."
+message: "重要的数据库写操作应该使用事务进行"
+severity: "warning"
+action:
+  type: "suggest"
+  value: "使用 db.Transaction 包装重要的数据库写操作以确保数据一致性"
+```
+
+### API 请求响应格式规范
+
+```rule
+name: "API 响应格式规范"
+description: "检查 API 响应格式是否统一"
+language: ["go"]
+pattern: "c\\.JSON\\s*\\(\\s*[0-9]+\\s*,\\s*(?!gin\\.H\\{\"code\":|response\\.)"
+message: "API 响应应该使用统一的响应格式"
+severity: "error"
+action:
+  type: "suggest"
+  value: "使用统一的响应格式：c.JSON(http.StatusOK, response.Success(data))"
+  
+接口请求model和响应model定义：
+每个接口必须定义请求model和响应model，（除非无返回值的，可以不定义）
+例如：dto.RunnerReq，dto.RunnerResp dto这个package可以放在pkg下面，文件名可以以资源纬度命名，例如：RunnerReq 和RunnerResp可以放在dto下runner.go，后续runner相关的也可以放进去，也可以用runner_xxx.go进行拆文件
+
+```
+
+## 数据库设计规范
+
+### 表命名规范
+
+```rule
+name: "数据库表命名规范"
+description: "检查数据库表结构定义的命名规范"
+language: ["go"]
+pattern: "type\\s+([A-Z][a-zA-Z0-9]*)\\s+struct"
+file_pattern: "model/.*\\.go$"
+not_matching: "type\\s+([A-Z][a-zA-Z0-9]*Model)\\s+struct"
+message: "模型结构体名称应该以 Model 结尾，如 UserModel"
+severity: "suggestion"
+action:
+  type: "suggest"
+  value: "将模型结构体命名为 XXXModel 格式"
+  
+  
+```
+
+### 数据库字段规范
+
+```rule
+name: "数据库字段标签规范"
+description: "检查数据库字段 GORM 标签规范"
+language: ["go"]
+pattern: "`gorm:\"[^\"]*\"`"
+not_matching: "`gorm:\"[^\"]*;comment:[^\"]*\"`"
+file_pattern: "model/.*\\.go$"
+message: "数据库字段应该包含注释说明"
+severity: "info"
+action:
+  type: "suggest"
+  value: "为 GORM 字段添加 comment 标签说明字段用途"
+```
+
+## API 安全规则
+
+### 输入验证检查
+
+```rule
+name: "API 输入验证"
+description: "检查 API 处理函数是否进行输入验证"
+language: ["go"]
+pattern: "func\\s+([A-Z][a-zA-Z0-9]*)\\s*\\([^)]*\\*gin\\.Context[^)]*\\)"
+not_followed_by: "[\\s\\S]*if\\s+err\\s*:=\\s*c\\.ShouldBind[\\s\\S]*"
+message: "API 处理函数应该进行输入参数验证"
+severity: "warning"
+action:
+  type: "suggest"
+  value: "添加输入验证代码：\nvar req RequestType\nif err := c.ShouldBindJSON(&req); err != nil {\n  c.JSON(http.StatusBadRequest, response.Error(err.Error()))\n  return\n}"
+```
+
+### 权限检查规则
+
+```rule
+name: "API 权限检查"
+description: "检查 API 处理函数是否进行权限验证"
+language: ["go"]
+pattern: "func\\s+([A-Z][a-zA-Z0-9]*)\\s*\\([^)]*\\*gin\\.Context[^)]*\\)"
+not_preceded_by: "// @Security JWT"
+not_followed_by: "[\\s\\S]*CheckPermission[\\s\\S]*"
+message: "API 处理函数应该进行权限检查"
+severity: "warning"
+action:
+  type: "suggest"
+  value: "添加权限检查代码或使用 auth 中间件"
+```
+
+## 日志规范
+
+### 日志记录规范
+
+```rule
+name: "错误日志记录规范"
+description: "检查错误处理时是否记录日志"
+language: ["go"]
+pattern: "if\\s+err\\s*!=\\s*nil\\s*\\{"
+not_followed_by: "[^}]*(?:log|logger)\\.[^}]*"
+message: "错误处理时应该记录日志"
+severity: "info"
+action:
+  type: "suggest"
+  value: "添加日志记录：log.Errorf(\"操作失败: %v\", err)"
+```

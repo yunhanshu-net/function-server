@@ -1,113 +1,105 @@
-# 目录树API
+# API Server
 
-基于Gin和GORM的RESTful API服务，提供目录树、Runner和Runcher管理功能。
+API Server 是一个用于管理和部署API的服务端应用，支持Fork功能，类似Git的工作方式。
+
+## 功能特点
+
+1. **Runner管理**：Runner代表一个完整的项目，可以包含多个服务和函数。
+2. **服务树管理**：服务树（ServiceTree）代表项目中的目录结构，类似于Go的包结构。
+3. **函数管理**：Runner中的函数（RunnerFunc）代表具体的API实现。
+4. **Fork功能**：支持对Runner、ServiceTree、RunnerFunc进行Fork操作，实现代码共享和复用。
+5. **版本控制**：支持API的版本管理和回滚。
 
 ## 项目结构
 
 ```
 api-server/
-├── api/
-│   └── v1/                    # API版本1
-│       ├── directory/         # 目录结构模块
-│       │   ├── tree.go        # 树形结构API
-│       │   ├── package.go     # 包API
-│       │   ├── function.go    # 函数API
-│       │   └── routes.go      # 路由注册
-│       ├── runner/            # Runner模块
-│       │   ├── runner.go      # Runner API
-│       │   ├── api.go         # Runner API管理
-│       │   ├── deploy.go      # 部署管理
-│       │   └── routes.go      # 路由注册
-│       ├── runcher/           # Runcher模块
-│       │   ├── runcher.go     # Runcher节点API
-│       │   └── routes.go      # 路由注册
-│       └── router.go          # API路由主文件
-├── middleware/                # 中间件
-│   └── auth.go                # 认证中间件
-├── model/                     # 数据模型
-│   ├── base/                  # 基础模型
-│   ├── directory/             # 目录结构模型
-│   ├── runner/                # Runner模型
-│   ├── runcher/               # Runcher模型
-│   ├── version/               # 版本模型
-│   └── model.go               # 模型主入口
-├── service/                   # 业务逻辑
-├── main.go                    # 应用入口
-└── go.mod                     # 项目依赖
+├── api/           # API控制器
+│   └── v1/        # API V1版本
+├── configs/       # 配置文件
+├── model/         # 数据模型
+├── pkg/           # 公共包
+│   ├── config/    # 配置管理
+│   ├── db/        # 数据库连接
+│   ├── logger/    # 日志管理
+│   ├── middleware/# 中间件
+│   └── response/  # 响应处理
+├── repo/          # 数据访问层
+├── router/        # 路由管理
+├── service/       # 业务逻辑层
+└── main.go        # 程序入口
 ```
 
-## API 概览
+## 快速开始
 
-### 目录结构
+### 环境要求
 
-- `GET /api/v1/directory/tree` - 获取目录树
-- `POST /api/v1/directory/tree/node` - 创建节点
-- `GET /api/v1/directory/tree/node/:id` - 获取节点详情
-- `PUT /api/v1/directory/tree/node/:id` - 更新节点
-- `DELETE /api/v1/directory/tree/node/:id` - 删除节点
-- `POST /api/v1/directory/tree/node/:id/move` - 移动节点
+- Go 1.16+
+- MySQL 5.7+
 
-- `GET /api/v1/directory/packages` - 获取包列表
-- `GET /api/v1/directory/packages/:id` - 获取包详情
-- `POST /api/v1/directory/packages` - 创建包
-- `PUT /api/v1/directory/packages/:id` - 更新包
-- `DELETE /api/v1/directory/packages/:id` - 删除包
+### 安装
 
-- `GET /api/v1/directory/functions` - 获取函数列表
-- `GET /api/v1/directory/functions/:id` - 获取函数详情
-- `POST /api/v1/directory/functions` - 创建函数
-- `PUT /api/v1/directory/functions/:id` - 更新函数
-- `DELETE /api/v1/directory/functions/:id` - 删除函数
-
-### Runner管理
-
-- `GET /api/v1/runners` - 获取Runner列表
-- `GET /api/v1/runners/:id` - 获取Runner详情
-- `POST /api/v1/runners` - 创建Runner
-- `PUT /api/v1/runners/:id` - 更新Runner
-- `DELETE /api/v1/runners/:id` - 删除Runner
-
-- `GET /api/v1/runners/:runner_id/apis` - 获取Runner API列表
-- `GET /api/v1/runners/:runner_id/apis/:id` - 获取Runner API详情
-- `POST /api/v1/runners/:runner_id/apis` - 添加Runner API
-- `PUT /api/v1/runners/:runner_id/apis/:id` - 更新Runner API
-- `DELETE /api/v1/runners/:runner_id/apis/:id` - 删除Runner API
-
-- `POST /api/v1/runners/:id/deploy` - 部署Runner
-- `GET /api/v1/runners/:id/status` - 获取Runner状态
-- `POST /api/v1/runners/:id/restart` - 重启Runner
-- `POST /api/v1/runners/:id/stop` - 停止Runner
-
-### Runcher节点管理
-
-- `GET /api/v1/runchers` - 获取Runcher节点列表
-- `GET /api/v1/runchers/:id` - 获取Runcher节点详情
-- `POST /api/v1/runchers` - 创建Runcher节点
-- `PUT /api/v1/runchers/:id` - 更新Runcher节点
-- `DELETE /api/v1/runchers/:id` - 删除Runcher节点
-
-## 运行
+1. 克隆代码仓库
 
 ```bash
-# 安装依赖
-go mod tidy
+git clone https://github.com/yunhanshu-net/api-server.git
+cd api-server
+```
 
-# 运行服务器
+2. 安装依赖
+
+```bash
+go mod tidy
+```
+
+3. 配置数据库
+
+编辑 `configs/config.json` 文件，配置数据库连接参数。
+
+4. 运行项目
+
+```bash
 go run main.go
 ```
 
-服务器默认在 http://localhost:8080 启动。
+## API文档
 
-## 认证
+### Runner API
 
-所有API请求需要在Header中提供认证信息：
+- `POST /api/v1/runner`：创建Runner
+- `GET /api/v1/runner`：获取Runner列表
+- `GET /api/v1/runner/:id`：获取Runner详情
+- `PUT /api/v1/runner/:id`：更新Runner
+- `DELETE /api/v1/runner/:id`：删除Runner
+- `POST /api/v1/runner/:id/fork`：Fork Runner
+- `GET /api/v1/runner/:id/version`：获取Runner版本历史
 
-```
-Authorization: Bearer {token}
-```
+### ServiceTree API
 
-或者在URL中提供token参数：
+- `POST /api/v1/service-tree`：创建目录
+- `GET /api/v1/service-tree`：获取目录列表
+- `GET /api/v1/service-tree/:id`：获取目录详情
+- `PUT /api/v1/service-tree/:id`：更新目录
+- `DELETE /api/v1/service-tree/:id`：删除目录
+- `POST /api/v1/service-tree/:id/fork`：Fork目录
+- `GET /api/v1/service-tree/children/:parent_id`：获取子目录列表
 
-```
-?token={token}
-```
+### RunnerFunc API
+
+- `POST /api/v1/runner-func`：创建函数
+- `GET /api/v1/runner-func`：获取函数列表
+- `GET /api/v1/runner-func/:id`：获取函数详情
+- `PUT /api/v1/runner-func/:id`：更新函数
+- `DELETE /api/v1/runner-func/:id`：删除函数
+- `POST /api/v1/runner-func/:id/fork`：Fork函数
+- `GET /api/v1/runner-func/runner/:runner_id`：获取Runner下的函数列表
+
+## Fork功能实现
+
+本项目实现了类似Git的Fork功能，可以对以下资源进行Fork操作：
+
+1. **Runner**：Fork整个项目
+2. **ServiceTree**：Fork一个目录及其下的所有内容
+3. **RunnerFunc**：Fork单个函数
+
+Fork时会记录来源信息，包括来源用户、来源ID等，便于后续的更新和同步。 
