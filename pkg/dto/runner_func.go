@@ -23,6 +23,8 @@ type CreateRunnerFuncReq struct {
 	IsPublic bool   `json:"is_public"`                  // 是否公开
 	Content  string `json:"content"`                    // 函数内容
 	Config   string `json:"config"`                     // 函数配置
+
+	Code string `json:"code"`
 }
 
 // ToModel 转换为模型

@@ -1,5 +1,7 @@
 package model
 
+import "strings"
+
 const (
 	ServiceTreeTypePackage  = "package"
 	ServiceTreeTypeFunction = "function"
@@ -28,6 +30,15 @@ type ServiceTree struct {
 }
 
 // TableName 指定表名
-func (ServiceTree) TableName() string {
+func (*ServiceTree) TableName() string {
 	return "service_tree"
+}
+
+// GetSubFullPath a/b/c -> b/c
+func (s *ServiceTree) GetSubFullPath() string {
+	split := strings.Split(s.FullNamePath, "/")
+	if len(split) == 1 {
+		return s.FullNamePath
+	}
+	return strings.Join(split[1:], "/")
 }

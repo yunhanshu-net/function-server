@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"github.com/yunhanshu-net/api-server/pkg/db"
+	"github.com/yunhanshu-net/api-server/pkg/dto/coder"
 	"sync"
 	"time"
 
@@ -32,8 +33,10 @@ type RunnerFuncService interface {
 
 // RunnerFunc 函数服务实现
 type RunnerFunc struct {
-	repo        repo.RunnerFuncRepository
-	serviceTree *ServiceTree
+	repo            repo.RunnerFuncRepository
+	runnerRepo      *repo.RunnerRepo
+	serviceTreeRepo *repo.ServiceTreeRepo
+	serviceTree     *ServiceTree
 }
 
 // RunnerFuncParam 全局参数
@@ -52,8 +55,10 @@ func GetRunnerFuncService() RunnerFuncService {
 // NewRunnerFunc 创建函数服务
 func NewRunnerFunc(db *gorm.DB) *RunnerFunc {
 	svc := &RunnerFunc{
-		repo:        repo.NewRunnerFuncRepo(db),
-		serviceTree: NewServiceTree(db),
+		repo:            repo.NewRunnerFuncRepo(db),
+		serviceTreeRepo: repo.NewServiceTreeRepo(db),
+		serviceTree:     NewServiceTree(db),
+		runnerRepo:      repo.NewRunnerRepo(db),
 	}
 
 	// 设置全局实例
@@ -83,26 +88,27 @@ func (s *RunnerFunc) Create(ctx context.Context, runnerFunc *model.RunnerFunc) e
 	runnerFunc.RunnerID = t.RunnerID
 
 	// 检查Runner是否存在
-	runnerExists, err := s.repo.CheckRunnerExists(ctx, runnerFunc.RunnerID)
+
+	gotRunner, err := s.runnerRepo.Get(ctx, runnerFunc.RunnerID)
 	if err != nil {
-		logger.Error(ctx, "检查Runner存在性失败", err, zap.Int64("runner_id", runnerFunc.RunnerID))
-		return fmt.Errorf("检查Runner存在性失败: %w", err)
+		return err
 	}
-	if !runnerExists {
+	if gotRunner == nil {
 		return errors.New("关联的Runner不存在")
 	}
 
-	// 检查服务树是否存在
-	if runnerFunc.TreeID > 0 {
-		treeExists, err := s.repo.CheckServiceTreeExists(ctx, runnerFunc.TreeID)
-		if err != nil {
-			logger.Error(ctx, "检查服务树存在性失败", err, zap.Int64("tree_id", runnerFunc.TreeID))
-			return fmt.Errorf("检查服务树存在性失败: %w", err)
-		}
-		if !treeExists {
-			return errors.New("关联的服务树不存在")
-		}
+	packageTree, err := s.serviceTreeRepo.Get(ctx, runnerFunc.TreeID)
+	if err != nil {
+		logger.Error(ctx, "检查服务树存在性失败", err, zap.Int64("tree_id", runnerFunc.TreeID))
+		return fmt.Errorf("检查服务树存在性失败: %w", err)
 	}
+	//// 检查服务树是否存在
+	//if runnerFunc.TreeID > 0 {
+	//
+	if packageTree == nil {
+		return errors.New("关联的服务树不存在")
+	}
+	//}
 
 	// 检查名称是否已存在
 	existingFunc, err := s.repo.GetByName(ctx, runnerFunc.RunnerID, runnerFunc.Name)
@@ -150,6 +156,36 @@ func (s *RunnerFunc) Create(ctx context.Context, runnerFunc *model.RunnerFunc) e
 		Comment:   "初始版本",
 		CreatedBy: runnerFunc.CreatedBy,
 		CreatedAt: runnerFunc.CreatedAt,
+	}
+	if runnerFunc.Code != "" {
+		service := GetRuncherService()
+		r := &coder.AddApiReq{
+			Runner: &coder.Runner{
+				Language: gotRunner.Language,
+				Name:     gotRunner.Name,
+				Version:  gotRunner.Version,
+				User:     gotRunner.User,
+			},
+			CodeApi: &coder.CodeApi{
+				EnName:         runnerFunc.Name,
+				CnName:         runnerFunc.Title,
+				Desc:           runnerFunc.Description,
+				Language:       gotRunner.Language,
+				Code:           runnerFunc.Code,
+				Package:        packageTree.Name,
+				AbsPackagePath: packageTree.GetSubFullPath(),
+			},
+		}
+		rsp, err := service.AddAPI2(ctx, r)
+		if err != nil {
+			logger.Error(ctx, "添加api失败", err, zap.Int64("func_id", runnerFunc.ID))
+			return err
+		}
+		err = s.runnerRepo.Update(ctx, runnerFunc.RunnerID, &model.Runner{Version: rsp.Version})
+		if err != nil {
+			logger.Error(ctx, "更新版本失败", err, zap.Int64("func_id", runnerFunc.ID))
+			return err
+		}
 	}
 
 	if err := s.repo.SaveVersion(ctx, version); err != nil {

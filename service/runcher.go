@@ -29,6 +29,8 @@ type RuncherService interface {
 	DeployFunction(ctx context.Context, runnerID int64, language string, code string) error
 	// GetFunctionStatus 获取函数状态
 	GetFunctionStatus(ctx context.Context, funcID string) (string, error)
+
+	AddAPI2(ctx context.Context, req *coder.AddApiReq) (rsp *coder.AddApiResp, err error)
 	// AddAPI 添加API
 	AddAPI(ctx context.Context, runnerID int64, funcName, funcTitle, packageName, code string, isPublic bool) (string, interface{}, error)
 	// AddAPIs 批量添加API
@@ -234,6 +236,45 @@ func (s *runcherService) AddAPI(ctx context.Context, runnerID int64, funcName, f
 
 	logger.Info(ctx, "添加API成功", zap.Int64("runnerID", runnerID), zap.String("funcName", funcName), zap.String("version", result.Version))
 	return result.Version, result.Data, nil
+}
+func (s *runcherService) AddAPI2(ctx context.Context, req *coder.AddApiReq) (rsp *coder.AddApiResp, err error) {
+
+	// 序列化请求数据
+	reqBytes, err := json.Marshal(req)
+	if err != nil {
+		logger.Error(ctx, "序列化请求数据失败", err)
+		return nil, fmt.Errorf("序列化请求数据失败: %w", err)
+	}
+
+	// 创建请求消息
+	msg := nats.NewMsg("coder.addApi")
+	msg.Data = reqBytes
+	msg.Header = nats.Header{}
+	msg.Header.Set("trace_id", getTraceID(ctx))
+
+	// 发送请求并等待响应
+	resp, err := s.nc.RequestMsg(msg, s.timeout)
+	if err != nil {
+		logger.Error(ctx, "添加API失败", err)
+		return nil, fmt.Errorf("添加API失败: %w", err)
+	}
+
+	// 解析响应码
+	code := resp.Header.Get("code")
+	if code != "0" {
+		errMsg := resp.Header.Get("msg")
+		logger.Error(ctx, "添加API返回错误", nil, zap.String("errMsg", errMsg))
+		return nil, fmt.Errorf("添加API错误: %s", errMsg)
+	}
+
+	// 解析响应数据
+	var result coder.AddApiResp
+	if err := json.Unmarshal(resp.Data, &result); err != nil {
+		logger.Error(ctx, "解析响应数据失败", err)
+		return nil, fmt.Errorf("解析响应数据失败: %w", err)
+	}
+
+	return &result, nil
 }
 
 // AddAPIs 批量添加API
