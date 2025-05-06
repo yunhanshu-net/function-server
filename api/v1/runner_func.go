@@ -51,6 +51,7 @@ func (api *RunnerFuncAPI) Create(c *gin.Context) {
 		TreeID:      req.TreeID,
 		Description: req.Desc,
 		IsPublic:    req.IsPublic,
+		Code:        req.Code,
 		// Type, Status, Content, Config字段在模型中不存在，暂时移除
 	}
 

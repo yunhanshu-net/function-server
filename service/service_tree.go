@@ -104,24 +104,27 @@ func (s *ServiceTree) Create(ctx context.Context, serviceTree *model.ServiceTree
 		// 不返回错误，因为目录已经创建成功
 	}
 
-	runcherServiceIns := GetRuncherService()
+	if serviceTree.Type == model.ServiceTreeTypePackage {
+		runcherServiceIns := GetRuncherService()
 
-	pkg := &coder.BizPackage{
-		Runner: &coder.Runner{
-			Language: gotRunner.Language,
-			Name:     gotRunner.Name,
-			Version:  gotRunner.Version,
-			User:     gotRunner.User,
-		},
-		Language: gotRunner.Language,
-		EnName:   serviceTree.Name,
-		CnName:   serviceTree.Title,
-		Desc:     serviceTree.Description,
-	}
+		pkg := &coder.BizPackage{
+			Runner: &coder.Runner{
+				Language: gotRunner.Language,
+				Name:     gotRunner.Name,
+				Version:  gotRunner.Version,
+				User:     gotRunner.User,
+			},
+			AbsPackagePath: serviceTree.GetSubFullPath(),
+			Language:       gotRunner.Language,
+			EnName:         serviceTree.Name,
+			CnName:         serviceTree.Title,
+			Desc:           serviceTree.Description,
+		}
 
-	pkgResp, err := runcherServiceIns.AddBizPackage2(ctx, pkg)
-	if err != nil {
-		logger.Errorf(ctx, "runcherServiceIns.AddBizPackage err:%s req:%+v  resp:%+v", err.Error(), pkg, pkgResp)
+		pkgResp, err := runcherServiceIns.AddBizPackage2(ctx, pkg)
+		if err != nil {
+			logger.Errorf(ctx, "runcherServiceIns.AddBizPackage err:%s req:%+v  resp:%+v", err.Error(), pkg, pkgResp)
+		}
 	}
 
 	//_, err = runcherServiceIns.AddBizPackage(ctx, serviceTree.RunnerID, serviceTree.Name, serviceTree.Title, "", serviceTree.ID, true)
