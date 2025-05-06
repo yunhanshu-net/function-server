@@ -1,7 +1,21 @@
+---
+description: 
+globs: 
+alwaysApply: true
+---
 
 ### 代码生成规范
+注意注意注意
+不要自己乱生成我要求外的代码，要按照我要求写代码，例如：我让你写一个用户注册的功能，你感觉这个需要token就帮我自动生成token功能，这是不允许的，我让你干啥你就干啥，不要想当然，听我指挥
+
+
 我让你干嘛你就干嘛，让你做什么功能你就只做这个功能即可，我会不断的跟你沟通，你只需要完成我吩咐的指令和功能即可，不要耍小聪明自己去生成我没有要求的代码
 因为你自己乱生成的代码会给我带来很大的麻烦，切记不要乱生成代码！！！
+
+
+每次写代码前先复述一遍需求和你的理解，然后大概概括一下你会做什么事情，然后我确认一下
+如果我需求或者指令没有描述清楚或者太笼统，请向我提问，确保需求搞清楚了再写代码
+我确认无误再执行，不要自己上去就开写
 
 
 ### 路由命名规范
@@ -29,7 +43,7 @@ repo层（数据库操作）：
     数据库相关的操作应该放在这里，
     参考代码：
     type RunnerRepo struct {
-	    db *gorm.DB
+     db *gorm.DB
     }
 
     func (r *RunnerRepo) GetDB() *gorm.DB {
@@ -57,14 +71,14 @@ model层：
     另外数据库gorm的tag标签尽可能的精简，不要擅自去建立什么约束，容易导致程序在启动时候AutoMigrate失败，所以每个model的定义最好只留个column和comment，其他的不写，
     然后每创建一个model都需要在db.Init里进行AutoMigrate，确保每次程序启动都能让表保持最新的状态，不要通过sql语句来进行表变更，后续表变更都围绕AutoMigrate来进行，参考下面
     err = DB.AutoMigrate(
-		&model.Runner{},
-		&model.FuncVersion{},
-		&model.RunnerFunc{},
-		&model.ServiceTree{},
-	)
-	if err != nil {
-		return err
-	}
+  &model.Runner{},
+  &model.FuncVersion{},
+  &model.RunnerFunc{},
+  &model.ServiceTree{},
+ )
+ if err != nil {
+  return err
+ }
 	
 	
 错误处理和日志打印：
@@ -79,7 +93,7 @@ model层：
     
     // 底层函数产生原始错误
     func readFile() error {
-        return errors.New("file not found") // 创建带堆栈信息的原始错误[1](@ref)
+        return errors.New("file not found") // 创建带堆栈信息的原始错误@1
     }
     
     // 中层函数包装错误
@@ -87,7 +101,7 @@ model层：
         err := readFile()
         if err != nil {
             // 添加业务上下文并保留原始错误堆栈
-            return errors.Wrap(err, "config processing failed") // 同时附加堆栈和新信息[1,4](@ref)
+            return errors.Wrap(err, "config processing failed") // 同时附加堆栈和新信息@1,4
         }
         return nil
     }
@@ -97,7 +111,7 @@ model层：
         err := processConfig()
         if err != nil {
             // 添加服务层上下文
-            return errors.Wrap(err, "service initialization error") // 多层堆栈记录[4,6](@ref)
+            return errors.Wrap(err, "service initialization error") // 多层堆栈记录@4,6
         }
         return nil
     }
@@ -129,22 +143,22 @@ model层：
 ```
 
 ### 列表接口规范
-参考：[base](../../pkg/dto/base)
+参考：@base
 这是封装好的，用起来很简单，只要是列表相关的均要用base.PageInfoReq，如果不满足的话可以把base.PageInfoReq组合到其他结构体
 ```go
-	var req base.PageInfoReq
-	err := c.ShouldBindQuery(&req)
-	if err != nil {
-		response.ParamError(c, err.Error())
-		return
-	}
-	var list []model.Runner
+ var req base.PageInfoReq
+ err := c.ShouldBindQuery(&req)
+ if err != nil {
+  response.ParamError(c, err.Error())
+  return
+ }
+ var list []model.Runner
 
-	db := db.GetDB()
-	//这里可以写查询条件
-	db.Where("user = ?", c.GetString("user"))
+ db := db.GetDB()
+ //这里可以写查询条件
+ db.Where("user = ?", c.GetString("user"))
 
-	paginate, err := base.AutoPaginate(c, db, &model.Runner{}, &list, &req)
+ paginate, err := base.AutoPaginate(c, db, &model.Runner{}, &list, &req)
 
 ```
 
@@ -211,8 +225,8 @@ action:
   value: "使用统一的响应格式：c.JSON(http.StatusOK, response.Success(data))"
   
 接口请求model和响应model定义：
-每个接口必须定义请求model和响应model，（除非无返回值的，可以不定义）
-例如：dto.RunnerReq，dto.RunnerResp dto这个package可以放在pkg下面，文件名可以以资源纬度命名，例如：RunnerReq 和RunnerResp可以放在dto下runner.go，后续runner相关的也可以放进去，也可以用runner_xxx.go进行拆文件
+每个接口必须定义请求model和响应model，（除非无返回值的，可以不定义）拿runner模块举例
+runner.RunnerReq，runner.RunnerResp 放在pkg/dto/runner这个package可以放在pkg下面，文件名可以以资源维度命名，例如：RunnerReq 和RunnerResp可以放在pkg/dto/runner下runner.go，后续runner相关的也可以放进去，也可以用runner_xxx.go进行拆文件
 
 ```
 
@@ -269,7 +283,7 @@ action:
 
 
 ### 日志打印
-日志打印均要传入context.Context
+日志打印均要传入context.Context，同时要打印出堆栈信息和根因
 
 
 ### 函数和方法约束
@@ -277,42 +291,44 @@ action:
 
 ### 错误处理
 错误处理参考这里的代码，不必每层出错都打印日志，每次出错需要Wrap详细的错误信息,然后可以在最外层 api层打印出错误根因和堆栈信息
+以下仅供参考：实际使用要结合项目的具体情况
 ```go
 package main
 
 import (
-	"fmt"
-	"github.com/pkg/errors"
+ "fmt"
+ "github.com/pkg/errors"
+ "github.com/yunhanshu-net/api-server/pkg/logger"
 )
 
 func main() {
-	if err := serviceLayer(); err != nil {
-		// 打印完整错误链和堆栈跟踪[3,8](@ref)
-		fmt.Printf("[xxxx某个service或者API] 根因错误: %v 完整错误堆栈:\n%+v\n", errors.Cause(err),err)
-	}
+ if err := serviceLayer(); err != nil {
+  // 打印完整错误链和堆栈跟踪@3,8
+  logger.Errorf(ctx,"[xxxx某个service或者API] 根因错误: %v 完整错误堆栈:\n%+v\n", errors.Cause(err), err)
+ }
 }
 
 // 服务层
 func serviceLayer() error {
-	if err := daoLayer(); err != nil {
-		// 添加服务层上下文[3,8](@ref)
-		return errors.Wrap(err, "服务层操作失败")
-	}
-	return nil
+ if err := daoLayer(); err != nil {
+  // 添加服务层上下文@3,8
+  return errors.Wrap(err, "服务层操作失败")
+ }
+ return nil
 }
 
 // 数据访问层
 func daoLayer() error {
-	if err := databaseOperation(); err != nil {
-		// 添加DAO层上下文[3,8](@ref)
-		return errors.WithMessage(err, "数据库操作失败")
-	}
-	return nil
+ if err := databaseOperation(); err != nil {
+  // 添加DAO层上下文@3,8
+  return errors.WithMessage(err, "数据库操作失败")
+ }
+ return nil
 }
 
 // 底层数据库操作
 func databaseOperation() error {
-	// 原始错误（带堆栈）[3](@ref)
-	return errors.New("连接超时：无法连接MySQL")
+ // 原始错误（带堆栈）@3
+ return errors.New("连接超时：无法连接MySQL")
 }
 ```
