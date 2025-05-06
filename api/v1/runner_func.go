@@ -3,6 +3,7 @@ package v1
 import (
 	"fmt"
 	"github.com/yunhanshu-net/api-server/pkg/db"
+	"github.com/yunhanshu-net/api-server/pkg/dto/base"
 	"strconv"
 	"time"
 
@@ -93,7 +94,7 @@ func (api *RunnerFuncAPI) List(c *gin.Context) {
 
 	getDB := db.GetDB().Where("user = ?", c.GetString("user"))
 	var runnerFunctions []*model.RunnerFunc
-	paginate, err := utils.AutoPaginate(c, getDB, &model.RunnerFunc{}, &runnerFunctions, &req.PageInfo)
+	paginate, err := base.AutoPaginate(c, getDB, &model.RunnerFunc{}, &runnerFunctions, &req.PageInfoReq)
 	if err != nil {
 		response.ServerError(c, err.Error())
 		return
