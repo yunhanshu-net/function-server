@@ -3,8 +3,6 @@ package repo
 import (
 	"context"
 	"errors"
-	"github.com/yunhanshu-net/api-server/pkg/db"
-
 	"github.com/yunhanshu-net/api-server/model"
 	"github.com/yunhanshu-net/api-server/pkg/logger"
 	"go.uber.org/zap"
@@ -35,7 +33,7 @@ func NewServiceTreeRepo(db *gorm.DB) *ServiceTreeRepo {
 // Create 创建ServiceTree
 func (r *ServiceTreeRepo) Create(ctx context.Context, tree *model.ServiceTree) error {
 	//这里先从ctx获取上层的db，假如存在事务的db，那就用事务来操作数据库，不存在再用默认的db对象
-	return db.GetContextDB(ctx, r.db).Create(tree).Error
+	return r.db.Create(tree).Error
 }
 
 // Get 获取ServiceTree详情

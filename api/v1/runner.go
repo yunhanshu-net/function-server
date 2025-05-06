@@ -3,7 +3,7 @@ package v1
 import (
 	"fmt"
 	"github.com/yunhanshu-net/api-server/pkg/db"
-	"github.com/yunhanshu-net/api-server/pkg/utils"
+	"github.com/yunhanshu-net/api-server/pkg/dto/base"
 	"strconv"
 	"time"
 
@@ -63,7 +63,7 @@ func (api *RunnerAPI) List(c *gin.Context) {
 
 	logger.Debug(c, "开始处理Runner列表请求")
 
-	var req utils.PageInfo
+	var req base.PageInfoReq
 	err := c.ShouldBindQuery(&req)
 	if err != nil {
 		response.ParamError(c, err.Error())
@@ -74,7 +74,7 @@ func (api *RunnerAPI) List(c *gin.Context) {
 	db := db.GetDB()
 	db.Where("user = ?", c.GetString("user"))
 
-	paginate, err := utils.AutoPaginate(c, db, &model.Runner{}, &list, &req)
+	paginate, err := base.AutoPaginate(c, db, &model.Runner{}, &list, &req)
 	if err != nil {
 		response.ServerError(c, err.Error())
 		return
