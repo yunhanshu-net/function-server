@@ -8,13 +8,13 @@ const (
 // ServiceTree 表示服务树模型
 type ServiceTree struct {
 	Base
-	Title    string `json:"title"`
-	Name     string `json:"name"`
-	ParentID int64  `json:"parent_id" gorm:"default:0"`
-	Type     string `json:"type"` //package or function
-
-	Tags     string `json:"tags"`
-	RunnerID int64  `json:"runner_id"`
+	Title       string `json:"title"`
+	Name        string `json:"name"`
+	ParentID    int64  `json:"parent_id" gorm:"default:0"`
+	Type        string `json:"type"` //package or function
+	Description string `json:"description,omitempty"`
+	Tags        string `json:"tags"`
+	RunnerID    int64  `json:"runner_id"`
 	//下面字段是数据库
 	Level         int    `json:"level" gorm:"default:1"`
 	Sort          int    `json:"sort" gorm:"default:0"`

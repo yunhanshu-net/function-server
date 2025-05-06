@@ -2,6 +2,7 @@ package v1
 
 import (
 	"fmt"
+	"github.com/yunhanshu-net/api-server/pkg/db"
 	"strconv"
 	"time"
 
@@ -82,64 +83,22 @@ func (api *RunnerFuncAPI) List(c *gin.Context) {
 	logger.Debug(c, "开始处理RunnerFunc列表请求")
 
 	// 使用ListRunnerFuncReq DTO接收请求参数
+
 	var req dto.ListRunnerFuncReq
-	if err := c.ShouldBindQuery(&req); err != nil {
-		logger.Error(c, "解析RunnerFunc列表参数失败", err)
-		response.ParamError(c, "参数解析失败: "+err.Error())
-		return
-	}
-
-	// 确保分页参数有效
-	if req.Page <= 0 {
-		req.Page = 1
-	}
-	if req.PageSize <= 0 {
-		req.PageSize = 10
-	}
-
-	logger.Debug(c, "分页参数", zap.Int("page", req.Page), zap.Int("page_size", req.PageSize))
-
-	// 从DTO获取查询条件
-	conditions := req.ToConditions()
-
-	// 调用服务层获取函数列表
-	runnerFuncList, total, err := api.service.List(c, req.Page, req.PageSize, conditions)
+	err := c.ShouldBindQuery(&req)
 	if err != nil {
-		logger.Error(c, "获取RunnerFunc列表失败", err)
-		response.ServerError(c, "获取函数列表失败")
+		response.ParamError(c, err.Error())
 		return
 	}
 
-	// 将模型列表转换为DTO列表
-	respItems := make([]dto.ListRunnerFuncResp, 0, len(runnerFuncList))
-	for _, runnerFunc := range runnerFuncList {
-		item := dto.ListRunnerFuncResp{
-			ID:       runnerFunc.ID,
-			Name:     runnerFunc.Name,
-			Title:    runnerFunc.Title,
-			RunnerID: runnerFunc.RunnerID,
-			TreeID:   runnerFunc.TreeID,
-			// Type和Status字段在模型中不存在，暂时填0
-			Type:      0,
-			Status:    0,
-			IsPublic:  runnerFunc.IsPublic,
-			User:      runnerFunc.User,
-			CreatedAt: time.Time(runnerFunc.CreatedAt),
-		}
-		respItems = append(respItems, item)
+	getDB := db.GetDB().Where("user = ?", c.GetString("user"))
+	var runnerFunctions []*model.RunnerFunc
+	paginate, err := utils.AutoPaginate(c, getDB, &model.RunnerFunc{}, &runnerFunctions, &req.PageInfo)
+	if err != nil {
+		response.ServerError(c, err.Error())
+		return
 	}
-
-	// 创建分页数据
-	paginatedData := &utils.Paginated{
-		Items:       respItems,
-		TotalCount:  total,
-		CurrentPage: req.Page,
-		PageSize:    req.PageSize,
-		TotalPages:  int((total + int64(req.PageSize) - 1) / int64(req.PageSize)),
-	}
-
-	logger.Info(c, "获取RunnerFunc列表成功", zap.Int64("total", total), zap.Int("count", len(runnerFuncList)))
-	response.Success(c, dto.NewPaginatedResponse(paginatedData))
+	response.Success(c, paginate)
 }
 
 // Get 获取函数详情

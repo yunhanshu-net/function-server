@@ -81,50 +81,6 @@ func (api *RunnerAPI) List(c *gin.Context) {
 	}
 	response.Success(c, paginate)
 
-	//// 从查询参数获取分页信息
-	//page, _ := strconv.Atoi(c.DefaultQuery("page", "1"))
-	//pageSize, _ := strconv.Atoi(c.DefaultQuery("page_size", "10"))
-	//
-	//logger.Debug(c, "分页参数", zap.Int("page", page), zap.Int("page_size", pageSize))
-
-	// 查询参数
-	//conditions := make(map[string]interface{})
-	//
-	//// 添加其他过滤条件
-	//if user := c.Query("user"); user != "" {
-	//	conditions["user"] = user
-	//	logger.Debug(c, "添加user过滤条件", zap.String("user", user))
-	//} else {
-	//	conditions["user"] = c.GetString("user")
-	//}
-	//
-	//if status := c.Query("status"); status != "" {
-	//	statusInt, _ := strconv.Atoi(status)
-	//	conditions["status"] = statusInt
-	//	logger.Debug(c, "添加status过滤条件", zap.Int("status", statusInt))
-	//}
-	//
-	//if isPublic := c.Query("is_public"); isPublic != "" {
-	//	isPublicBool := isPublic == "true"
-	//	conditions["is_public"] = isPublicBool
-	//	logger.Debug(c, "添加is_public过滤条件", zap.Bool("is_public", isPublicBool))
-	//}
-
-	// 获取数据
-	//runners, total, err := api.service.List(c, page, pageSize, conditions)
-	//if err != nil {
-	//	logger.Error(c, "获取Runner列表失败", err)
-	//	response.ServerError(c, "获取Runner列表失败")
-	//	return
-	//}
-
-	//logger.Info(c, "获取Runner列表成功", zap.Int64("total", total), zap.Int("count", len(runners)))
-	//response.Success(c, gin.H{
-	//	"total": total,
-	//	"items": runners,
-	//	"page":  page,
-	//	"size":  pageSize,
-	//})
 }
 
 // Get 获取Runner详情

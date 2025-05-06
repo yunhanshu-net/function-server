@@ -29,25 +29,6 @@ type CreateRunnerResp struct {
 	CreatedAt time.Time `json:"created_at"` // 创建时间
 }
 
-// ToModel 转换为模型
-func (req *CreateRunnerReq) ToModel() *model.Runner {
-	return &model.Runner{
-		Name:        req.Name,
-		Title:       req.Title,
-		Description: req.Desc,
-		Status:      int8(req.Status),
-		IsPublic:    req.IsPublic,
-	}
-}
-
-// FromModel 从模型转换
-func (resp *CreateRunnerResp) FromModel(runner *model.Runner) {
-	resp.ID = runner.ID
-	resp.Name = runner.Name
-	resp.Title = runner.Title
-	resp.CreatedAt = time.Time(runner.CreatedAt)
-}
-
 // ===========================================================================
 // 获取Runner详情
 // ===========================================================================
@@ -75,19 +56,6 @@ type GetRunnerResp struct {
 	UpdatedAt  time.Time `json:"updated_at"`   // 更新时间
 }
 
-// FromModel 从模型转换
-func (resp *GetRunnerResp) FromModel(runner *model.Runner) {
-	resp.ID = runner.ID
-	resp.Name = runner.Name
-	resp.Title = runner.Title
-	resp.Desc = runner.Description
-	resp.Status = int(runner.Status)
-	resp.IsPublic = runner.IsPublic
-	resp.User = runner.User
-	resp.CreatedBy = runner.CreatedBy
-	resp.UpdatedBy = runner.UpdatedBy
-}
-
 // ===========================================================================
 // 更新Runner
 // ===========================================================================
@@ -110,25 +78,6 @@ type UpdateRunnerResp struct {
 	Name      string    `json:"name"`       // Runner名称
 	Title     string    `json:"title"`      // Runner标题
 	UpdatedAt time.Time `json:"updated_at"` // 更新时间
-}
-
-// ToModel 转换为模型
-func (req *UpdateRunnerReq) ToModel() *model.Runner {
-	return &model.Runner{
-		Name:        req.Name,
-		Title:       req.Title,
-		Description: req.Desc,
-		Status:      int8(req.Status),
-		IsPublic:    req.IsPublic,
-	}
-}
-
-// FromModel 从模型转换
-func (resp *UpdateRunnerResp) FromModel(runner *model.Runner) {
-	resp.ID = runner.ID
-	resp.Name = runner.Name
-	resp.Title = runner.Title
-	resp.UpdatedAt = time.Time(runner.UpdatedAt)
 }
 
 // ===========================================================================

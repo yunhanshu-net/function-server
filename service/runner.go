@@ -193,7 +193,7 @@ func (s *Runner) Update(ctx context.Context, id int64, runner *model.Runner) err
 	}
 	if existingRunner == nil {
 		logger.Info(ctx, "Runner不存在", zap.Int64("id", id))
-		return errors.New("Runner不存在")
+		return errors.New("runner不存在")
 	}
 
 	// 业务逻辑校验

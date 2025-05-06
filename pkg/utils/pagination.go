@@ -12,12 +12,12 @@ import (
 )
 
 // Paginated 分页结果结构体
-type Paginated struct {
-	Items       interface{} `json:"items"`        // 分页数据
-	CurrentPage int         `json:"current_page"` // 当前页码
-	TotalCount  int64       `json:"total_count"`  // 总数据量
-	TotalPages  int         `json:"total_pages"`  // 总页数
-	PageSize    int         `json:"page_size"`    // 每页数量
+type Paginated[T any] struct {
+	Items       T     `json:"items"`        // 分页数据
+	CurrentPage int   `json:"current_page"` // 当前页码
+	TotalCount  int64 `json:"total_count"`  // 总数据量
+	TotalPages  int   `json:"total_pages"`  // 总页数
+	PageSize    int   `json:"page_size"`    // 每页数量
 }
 
 // PageInfo 分页参数结构体
@@ -118,7 +118,7 @@ func (i *PageInfo) GetSorts() string {
 }
 
 // AutoPaginate 自动分页查询
-func AutoPaginate(ctx context.Context, db *gorm.DB, model interface{}, data interface{}, pageInfo *PageInfo) (*Paginated, error) {
+func AutoPaginate[T any](ctx context.Context, db *gorm.DB, model interface{}, data T, pageInfo *PageInfo) (*Paginated[T], error) {
 	if pageInfo == nil {
 		pageInfo = new(PageInfo)
 	}
@@ -163,27 +163,11 @@ func AutoPaginate(ctx context.Context, db *gorm.DB, model interface{}, data inte
 		zap.Int("totalPages", totalPages))
 
 	// 构造分页结果
-	return &Paginated{
+	return &Paginated[T]{
 		Items:       data,
 		CurrentPage: pageInfo.Page,
 		TotalCount:  totalCount,
 		TotalPages:  totalPages,
 		PageSize:    pageSize,
 	}, nil
-}
-
-// WithPagination 返回一个带分页条件的查询构建器
-func WithPagination(db *gorm.DB, pageInfo *PageInfo) *gorm.DB {
-	if pageInfo == nil {
-		return db
-	}
-
-	// 应用排序条件
-	sortStr := pageInfo.GetSorts()
-	if sortStr != "" {
-		db = db.Order(sortStr)
-	}
-
-	// 应用分页条件
-	return db.Offset(pageInfo.GetOffset()).Limit(pageInfo.GetLimit())
 }
