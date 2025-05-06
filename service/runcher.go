@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"github.com/yunhanshu-net/api-server/pkg/db"
+	"github.com/yunhanshu-net/api-server/pkg/dto/coder"
 	"sync"
 	"time"
 
@@ -36,6 +37,9 @@ type RuncherService interface {
 	CreateProject(ctx context.Context, runner *model.Runner) (string, error)
 	// AddBizPackage 添加业务包
 	AddBizPackage(ctx context.Context, runnerID int64, packageName, packageTitle, packageDesc string, treeID int64, isPublic bool) (string, error)
+
+	AddBizPackage2(ctx context.Context, bizPackage *coder.BizPackage) (*coder.BizPackageResp, error)
+
 	// Close 关闭服务
 	Close() error
 }
@@ -168,7 +172,7 @@ func (s *runcherService) AddAPI(ctx context.Context, runnerID int64, funcName, f
 
 	if runner == nil {
 		logger.Error(ctx, "Runner不存在", nil, zap.Int64("runnerID", runnerID))
-		return "", nil, fmt.Errorf("Runner不存在")
+		return "", nil, fmt.Errorf("runner不存在")
 	}
 
 	// 构建请求数据
@@ -367,6 +371,46 @@ func (s *runcherService) CreateProject(ctx context.Context, runner *model.Runner
 
 	logger.Info(ctx, "创建项目成功", zap.String("name", runner.Name), zap.String("user", runner.User), zap.String("version", result.Version))
 	return result.Version, nil
+}
+
+func (s *runcherService) AddBizPackage2(ctx context.Context, bizPackage *coder.BizPackage) (*coder.BizPackageResp, error) {
+
+	// 序列化请求数据
+	reqBytes, err := json.Marshal(bizPackage)
+	if err != nil {
+		logger.Error(ctx, "序列化请求数据失败", err)
+		return nil, fmt.Errorf("序列化请求数据失败: %w", err)
+	}
+
+	// 创建请求消息
+	msg := nats.NewMsg("coder.addBizPackage")
+	msg.Data = reqBytes
+	msg.Header = nats.Header{}
+	msg.Header.Set("trace_id", getTraceID(ctx))
+
+	// 发送请求并等待响应
+	resp, err := s.nc.RequestMsg(msg, s.timeout)
+	if err != nil {
+		logger.Error(ctx, "添加业务包失败", err)
+		return nil, fmt.Errorf("添加业务包失败: %w", err)
+	}
+
+	// 解析响应码
+	code := resp.Header.Get("code")
+	if code != "0" {
+		errMsg := resp.Header.Get("msg")
+		logger.Error(ctx, "添加业务包返回错误", nil, zap.String("errMsg", errMsg))
+		return nil, fmt.Errorf("添加业务包错误: %s", errMsg)
+	}
+
+	// 解析响应数据
+	var result coder.BizPackageResp
+
+	if err := json.Unmarshal(resp.Data, &result); err != nil {
+		logger.Error(ctx, "解析响应数据失败", err)
+		return nil, fmt.Errorf("解析响应数据失败: %w", err)
+	}
+	return &result, nil
 }
 
 // AddBizPackage 添加业务包

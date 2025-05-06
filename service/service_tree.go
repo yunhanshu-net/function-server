@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"github.com/yunhanshu-net/api-server/pkg/dto/coder"
 	"strings"
 	"time"
 
@@ -73,6 +74,11 @@ func (s *ServiceTree) Create(ctx context.Context, serviceTree *model.ServiceTree
 
 	serviceTree.RunnerID = parent.RunnerID
 	serviceTree.User = parent.User
+
+	gotRunner, err := s.runnerRepo.Get(ctx, serviceTree.RunnerID)
+	if err != nil {
+		return err
+	}
 	// 创建服务树（需要先创建以获得ID）
 	if err := s.repo.Create(ctx, serviceTree); err != nil {
 		logger.Error(ctx, "创建服务树失败", err)
@@ -99,46 +105,36 @@ func (s *ServiceTree) Create(ctx context.Context, serviceTree *model.ServiceTree
 	}
 
 	runcherServiceIns := GetRuncherService()
-	_, err = runcherServiceIns.AddBizPackage(ctx, serviceTree.RunnerID, serviceTree.Name, serviceTree.Title, "", serviceTree.ID, true)
-	if err != nil {
-		logger.Errorf(ctx, "runcherServiceIns.AddBizPackage err:%s", err.Error())
-		err = nil
+
+	pkg := &coder.BizPackage{
+		Runner: &coder.Runner{
+			Language: gotRunner.Language,
+			Name:     gotRunner.Name,
+			Version:  gotRunner.Version,
+			User:     gotRunner.User,
+		},
+		Language: gotRunner.Language,
+		EnName:   serviceTree.Name,
+		CnName:   serviceTree.Title,
+		Desc:     serviceTree.Description,
 	}
+
+	pkgResp, err := runcherServiceIns.AddBizPackage2(ctx, pkg)
+	if err != nil {
+		logger.Errorf(ctx, "runcherServiceIns.AddBizPackage err:%s req:%+v  resp:%+v", err.Error(), pkg, pkgResp)
+	}
+
+	//_, err = runcherServiceIns.AddBizPackage(ctx, serviceTree.RunnerID, serviceTree.Name, serviceTree.Title, "", serviceTree.ID, true)
+	//if err != nil {
+	//	logger.Errorf(ctx, "runcherServiceIns.AddBizPackage err:%s", err.Error())
+	//	err = nil
+	//}
 
 	// 更新父级目录的子目录数量
 	if err := s.repo.UpdateChildrenCount(ctx, serviceTree.ParentID, 1); err != nil {
 		logger.Error(ctx, "更新父级目录子目录数量失败", err, zap.Any("parent_id", serviceTree.ParentID))
 		// 不返回错误，因为目录已经创建成功
 	}
-	// 如果有父级目录，需要更新父级目录的子目录数量并验证其存在性
-	//if serviceTree.ParentID != 0 {
-	//
-	//} else {
-	//	// 创建服务树（需要先创建以获得ID）
-	//	if err := s.repo.Create(ctx, serviceTree); err != nil {
-	//		logger.Error(ctx, "创建服务树失败", err)
-	//		return fmt.Errorf("创建服务树失败: %w", err)
-	//	}
-	//
-	//	// 使用ID构建FullIDPath
-	//	serviceTree.FullIDPath = fmt.Sprintf("%d", serviceTree.ID)
-	//
-	//	// 构建FullNamePath
-	//	serviceTree.FullNamePath = serviceTree.Name
-	//
-	//	// 根目录级别为0
-	//	serviceTree.Level = 0
-	//
-	//	// 更新路径字段
-	//	if err := s.repo.Update(ctx, serviceTree.ID, &model.ServiceTree{
-	//		FullIDPath:   serviceTree.FullIDPath,
-	//		FullNamePath: serviceTree.FullNamePath,
-	//		Level:        serviceTree.Level,
-	//	}); err != nil {
-	//		logger.Error(ctx, "更新服务树路径失败", err)
-	//		// 不返回错误，因为目录已经创建成功
-	//	}
-	//}
 
 	logger.Info(ctx, "创建服务树成功", zap.Any("id", serviceTree.ID), zap.String("name", serviceTree.Name))
 	return nil

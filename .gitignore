@@ -1,4 +1,5 @@
 *.log
+/logs
 *.yaml
 .idea
 *.sum
