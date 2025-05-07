@@ -22,7 +22,7 @@ const ContextKey contextKey = "trace_id"
 // Init 初始化日志
 func Init(cfg config.LogConfig) error {
 	// 确保日志目录存在
-	logDir := filepath.Dir("logs/app.log")
+	logDir := filepath.Dir("logs/api-server.log")
 	if _, err := os.Stat(logDir); os.IsNotExist(err) {
 		if err := os.MkdirAll(logDir, 0755); err != nil {
 			return err
