@@ -52,6 +52,7 @@ func (api *RunnerFuncAPI) Create(c *gin.Context) {
 		Description: req.Desc,
 		IsPublic:    req.IsPublic,
 		Code:        req.Code,
+		User:        c.GetString("user"),
 		// Type, Status, Content, Config字段在模型中不存在，暂时移除
 	}
 
@@ -59,12 +60,14 @@ func (api *RunnerFuncAPI) Create(c *gin.Context) {
 	runnerFunc.CreatedBy = c.GetString("user")
 	runnerFunc.UpdatedBy = c.GetString("user")
 
+	now := time.Now()
 	// 调用服务层创建函数
 	if err := api.service.Create(c, runnerFunc); err != nil {
 		logger.Error(c, "创建RunnerFunc失败", err)
 		response.ServerError(c, "创建函数失败: "+err.Error())
 		return
 	}
+	logger.Infof(c, "创建函数耗时：cost:%s", time.Since(now))
 
 	// 直接创建响应DTO
 	resp := dto.CreateRunnerFuncResp{

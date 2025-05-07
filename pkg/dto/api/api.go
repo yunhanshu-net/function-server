@@ -1,10 +1,20 @@
 package api
 
+import "encoding/json"
+
 type Params struct {
 
 	//form,table,echarts,bi,3D .....
 	RenderType string       `json:"render_type"`
 	Children   []*ParamInfo `json:"children"`
+}
+
+func (p *Params) JSONRawMessage() (json.RawMessage, error) {
+	marshal, err := json.Marshal(p)
+	if err != nil {
+		return nil, err
+	}
+	return marshal, nil
 }
 
 type ParamInfo struct {

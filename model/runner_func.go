@@ -23,8 +23,9 @@ type RunnerFunc struct {
 	ForkFromUser    string          `json:"fork_from_user,omitempty"`
 	ForkFromVersion string          `json:"fork_from_version"`
 	ForkFromID      *int64          `json:"fork_from_id"`
-
-	Code string `json:"-" gorm:"-"`
+	Method          string          `json:"method"`
+	Path            string          `json:"path"`
+	Code            string          `json:"-" gorm:"-"`
 }
 
 func (RunnerFunc) TableName() string {
