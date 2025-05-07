@@ -47,6 +47,15 @@ func (r *RunnerRepo) Create(ctx context.Context, runner *model.Runner) error {
 	return r.db.WithContext(ctx).Create(runner).Error
 }
 
+//func (r *RunnerRepo) AddFunctions(ctx context.Context, functions []*api.Info) error {
+//	var fns []*model.RunnerFunc
+//	for i, function := range functions {
+//		f := &model.RunnerFunc{
+//
+//		}
+//	}
+//}
+
 // Get 获取Runner详情
 func (r *RunnerRepo) Get(ctx context.Context, id int64) (*model.Runner, error) {
 	logger.Debug(ctx, "开始获取Runner", zap.Int64("id", id))

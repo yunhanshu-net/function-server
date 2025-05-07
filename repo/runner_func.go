@@ -10,26 +10,6 @@ import (
 	"gorm.io/gorm"
 )
 
-// RunnerFuncRepository 函数仓库接口
-type RunnerFuncRepository interface {
-	Create(ctx context.Context, runnerFunc *model.RunnerFunc) error
-	Get(ctx context.Context, id int64) (*model.RunnerFunc, error)
-	Update(ctx context.Context, id int64, updateData *model.RunnerFunc) error
-	Delete(ctx context.Context, id int64) error
-	SetDeletedBy(ctx context.Context, id int64, deletedBy string) error
-	List(ctx context.Context, page, pageSize int, conditions map[string]interface{}) ([]model.RunnerFunc, int64, error)
-	GetByRunner(ctx context.Context, runnerID int64) ([]model.RunnerFunc, error)
-	GetByName(ctx context.Context, runnerID int64, name string) (*model.RunnerFunc, error)
-	CheckRunnerExists(ctx context.Context, runnerID int64) (bool, error)
-	CheckServiceTreeExists(ctx context.Context, treeID int64) (bool, error)
-	Fork(ctx context.Context, sourceID int64, targetTreeID int64, targetRunnerID int64, newName string, operator string) (*model.RunnerFunc, error)
-	GetByTree(ctx context.Context, treeID int64) ([]model.RunnerFunc, error)
-	BatchCreate(ctx context.Context, runnerFuncs []model.RunnerFunc) error
-	UpdateStatus(ctx context.Context, id int64, status int) error
-	SaveVersion(ctx context.Context, version *model.FuncVersion) error
-	GetVersions(ctx context.Context, funcID int64) ([]model.FuncVersion, error)
-}
-
 // RunnerFuncRepo 函数仓库实现
 type RunnerFuncRepo struct {
 	db *gorm.DB
