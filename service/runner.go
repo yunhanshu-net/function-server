@@ -18,18 +18,6 @@ func timeToModelTime(t time.Time) model.Time {
 	return model.Time(t)
 }
 
-// RunnerService Runner服务接口
-type RunnerService interface {
-	Create(ctx context.Context, runner *model.Runner) error
-	Get(ctx context.Context, id int64) (*model.Runner, error)
-	Update(ctx context.Context, id int64, runner *model.Runner) error
-	Delete(ctx context.Context, id int64, operator string) error
-	List(ctx context.Context, page, pageSize int, conditions map[string]interface{}) ([]model.Runner, int64, error)
-	GetByName(ctx context.Context, name string) (*model.Runner, error)
-	GetVersionHistory(ctx context.Context, id int64) ([]model.RunnerVersion, error)
-	SaveVersion(ctx context.Context, runnerID int64, version string, comment string, operator string) error
-}
-
 // Runner Runner服务实现
 type Runner struct {
 	repo           *repo.RunnerRepo

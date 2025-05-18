@@ -42,6 +42,22 @@ func (r *RunnerFuncRepo) Get(ctx context.Context, id int64) (*model.RunnerFunc, 
 	return &runnerFunc, nil
 }
 
+// GetByTreeId 获取函数详情
+func (r *RunnerFuncRepo) GetByTreeId(ctx context.Context, id int64) (*model.RunnerFunc, error) {
+	logger.Debug(ctx, "开始获取函数", zap.Int64("id", id))
+	var runnerFunc model.RunnerFunc
+	err := r.db.WithContext(ctx).First(&runnerFunc, id).Error
+	if err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			logger.Info(ctx, "函数不存在", zap.Int64("id", id))
+			return nil, nil
+		}
+		logger.Error(ctx, "获取函数失败", err, zap.Int64("id", id))
+		return nil, err
+	}
+	return &runnerFunc, nil
+}
+
 // Update 更新函数
 func (r *RunnerFuncRepo) Update(ctx context.Context, id int64, updateData *model.RunnerFunc) error {
 	logger.Debug(ctx, "开始更新函数", zap.Int64("id", id))

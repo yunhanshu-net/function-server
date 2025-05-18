@@ -1,9 +1,9 @@
 package v1
 
 import (
-	"fmt"
 	"github.com/yunhanshu-net/api-server/pkg/db"
 	"github.com/yunhanshu-net/api-server/pkg/dto/base"
+	"github.com/yunhanshu-net/api-server/pkg/query"
 	"strconv"
 	"time"
 
@@ -135,30 +135,88 @@ func (api *RunnerFuncAPI) Get(c *gin.Context) {
 	}
 
 	// 直接创建响应DTO
-	resp := dto.GetRunnerFuncResp{
-		ID:       runnerFunc.ID,
-		Name:     runnerFunc.Name,
-		Title:    runnerFunc.Title,
-		RunnerID: runnerFunc.RunnerID,
-		TreeID:   runnerFunc.TreeID,
-		Desc:     runnerFunc.Description,
-		// Type和Status字段在模型中不存在，暂时填0
-		Type:     0,
-		Status:   0,
-		IsPublic: runnerFunc.IsPublic,
-		// Content和Config字段在模型中不存在，暂时留空
-		Content:    "",
-		Config:     "",
-		User:       runnerFunc.User,
-		ForkFromID: runnerFunc.ForkFromID,
-		CreatedBy:  runnerFunc.CreatedBy,
-		CreatedAt:  time.Time(runnerFunc.CreatedAt),
-		UpdatedBy:  runnerFunc.UpdatedBy,
-		UpdatedAt:  time.Time(runnerFunc.UpdatedAt),
-	}
 
 	logger.Info(c, "获取RunnerFunc详情成功", zap.Int64("id", id))
-	response.Success(c, resp)
+	response.Success(c, runnerFunc)
+}
+func (api *RunnerFuncAPI) GetByTreeId(c *gin.Context) {
+	// 使用GetRunnerFuncReq DTO
+	var req dto.GetRunnerFuncReq
+	id, err := strconv.ParseInt(c.Param("tree_id"), 10, 64)
+	if err != nil {
+		logger.Error(c, "解析RunnerFunc ID失败", err, zap.String("id_param", c.Param("id")))
+		response.ParamError(c, "无效的ID")
+		return
+	}
+	req.ID = id
+
+	logger.Debug(c, "开始处理RunnerFunc详情请求", zap.Int64("id", id))
+
+	// 调用服务层获取函数详情
+	runnerFunc, err := api.service.GetByTreeId(c, id)
+	if err != nil {
+		logger.Error(c, "获取RunnerFunc详情失败", err, zap.Int64("id", id))
+		response.ServerError(c, "获取函数详情失败")
+		return
+	}
+
+	if runnerFunc == nil {
+		logger.Info(c, "RunnerFunc不存在", zap.Int64("id", id))
+		response.NotFound(c, "函数不存在")
+		return
+	}
+
+	// 直接创建响应DTO
+
+	logger.Info(c, "获取RunnerFunc详情成功", zap.Int64("id", id))
+	response.Success(c, runnerFunc)
+}
+
+func (api *RunnerFuncAPI) GetByFullPath(c *gin.Context) {
+	// 使用GetRunnerFuncReq DTO
+	var req dto.GetRunnerFuncByFullPath
+	err := c.ShouldBindQuery(&req)
+	if err != nil {
+		logger.Errorf(c, "解析RunnerFunc 失败:%s", err)
+		response.ParamError(c, "无效的ID")
+		return
+	}
+
+	// 调用服务层获取函数详情
+	runnerFunc, err := api.service.GetByFullPath(c, req.User, req.FullPath)
+	if err != nil {
+		logger.Errorf(c, "获取RunnerFunc详情失败:%s req:%+v", err, req)
+		response.ServerError(c, "获取函数详情失败")
+		return
+	}
+
+	if runnerFunc == nil {
+		logger.Errorf(c, "函数不存在:%s req:%+v", err, req)
+		response.NotFound(c, "函数不存在")
+		return
+	}
+	response.Success(c, runnerFunc)
+}
+func (api *RunnerFuncAPI) GetFuncRecord(c *gin.Context) {
+	// 使用GetRunnerFuncReq DTO
+	var req dto.GetFuncRecord
+	err := c.ShouldBindQuery(&req)
+	if err != nil {
+		logger.Errorf(c, "解析RunnerFunc 失败:%s", err)
+		response.ParamError(c, "无效的ID")
+		return
+	}
+
+	f := c.Param("func_id")
+	d := db.GetDB().Where("func_id = ?", f)
+
+	var list []model.FuncRunRecord
+	paginate, err := query.AutoPaginate(c, d, &model.FuncRunRecord{}, &list, &req.PageInfoReq)
+	if err != nil {
+		response.ServerError(c, err.Error())
+		return
+	}
+	response.Success(c, paginate)
 }
 
 // Update 更新函数
@@ -470,69 +528,4 @@ func (api *RunnerFuncAPI) UpdateStatus(c *gin.Context) {
 
 	logger.Info(c, "更新RunnerFunc状态成功", zap.Int64("id", id), zap.Int("status", req.Status))
 	response.Success(c, resp)
-}
-
-// RunFunction 执行函数
-// @Summary 执行函数
-// @Description 执行指定函数
-// @Tags 函数
-// @Accept json
-// @Produce json
-// @Param id path int true "函数ID"
-// @Param input body map[string]interface{} true "函数输入"
-// @Success 200 {object} pkg.Response{data=map[string]interface{}}
-// @Failure 400 {object} pkg.Response
-// @Failure 500 {object} pkg.Response
-// @Router /v1/runner-func/{id}/run [post]
-func RunFunction(c *gin.Context) {
-	ctx := c.Request.Context()
-	logger.Debug(ctx, "开始处理函数执行请求")
-
-	// 获取函数ID
-	functionIDStr := c.Param("id")
-	functionID, err := strconv.ParseInt(functionIDStr, 10, 64)
-	if err != nil {
-		response.ParamError(c, "函数ID无效")
-		return
-	}
-
-	// 获取函数输入参数
-	var input map[string]interface{}
-	if err := c.ShouldBindJSON(&input); err != nil {
-		response.ParamError(c, "无效的请求体格式")
-		return
-	}
-
-	// 获取函数信息
-	runnerFunc, err := service.GetRunnerFuncService().GetRunnerFuncByID(ctx, functionID)
-	if err != nil {
-		msg := fmt.Sprintf("获取函数信息失败: %s", err.Error())
-		logger.Error(ctx, msg, err)
-		response.ServerError(c, msg)
-		return
-	}
-
-	if runnerFunc == nil {
-		response.NotFound(c, "函数不存在")
-		return
-	}
-
-	// 获取Runcher服务
-	runcherService := service.GetRuncherService()
-	if runcherService == nil {
-		response.ServerError(c, "Runcher服务未初始化")
-		return
-	}
-
-	// 构建请求参数并执行
-	result, err := runcherService.RunFunction(ctx, runnerFunc.Name, runnerFunc.Name, input)
-	if err != nil {
-		msg := fmt.Sprintf("函数执行失败: %s", err.Error())
-		logger.Error(ctx, msg, err)
-		response.ServerError(c, msg)
-		return
-	}
-
-	// 返回结果
-	response.Success(c, result)
 }

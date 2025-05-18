@@ -59,6 +59,75 @@ func (r *ServiceTreeRepo) Get(ctx context.Context, id int64) (*model.ServiceTree
 	}
 	return &tree, nil
 }
+func (r *ServiceTreeRepo) GetByUserFullPath(ctx context.Context, user string, fullPath string) (*model.ServiceTree, error) {
+	var tree model.ServiceTree
+	err := r.db.WithContext(ctx).Where("user = ? and full_name_path = ?", user, fullPath).First(&tree).Error
+	if err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil, nil
+		}
+		return nil, err
+	}
+	return &tree, nil
+}
+func (r *ServiceTreeRepo) GetChildrenByFullPath(ctx context.Context, user string, fullPath string) ([]*model.ServiceTree, error) {
+	var tree model.ServiceTree
+	err := r.db.WithContext(ctx).Where("user = ? and full_name_path = ?", user, fullPath).First(&tree).Error
+	if err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil, nil
+		}
+		return nil, err
+	}
+	var trees []*model.ServiceTree
+	err = r.db.WithContext(ctx).Where("parent_id = ?", tree.ID).Find(&trees).Error
+	if err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil, nil
+		}
+		return nil, err
+	}
+	return trees, nil
+}
+
+//func (r *ServiceTreeRepo) Children(ctx context.Context, parentId int64) ([]*model.ServiceTree, error) {
+//	logger.Debug(ctx, "开始获取ServiceTree", zap.Any("parentId", parentId))
+//	var trees []*model.ServiceTree
+//	err := r.db.WithContext(ctx).Where("parent_id = ?", parentId).Find(&trees).Error
+//	if err != nil {
+//		if errors.Is(err, gorm.ErrRecordNotFound) {
+//			logger.Info(ctx, "ServiceTree不存在", zap.Any("parentId", parentId))
+//			return nil, nil
+//		}
+//		logger.Error(ctx, "获取ServiceTree失败", err, zap.Any("parentId", parentId))
+//		return nil, err
+//	}
+//	return trees, nil
+//}
+
+// GetByFullPath 获取ServiceTree详情
+func (r *ServiceTreeRepo) GetByFullPath(ctx context.Context, user string, fullPath string) (*model.ServiceTree, error) {
+	var tree model.ServiceTree
+	err := r.db.WithContext(ctx).Where("user = ? and full_name_path = ?", user, fullPath).First(&tree).Error
+	if err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			logger.Infof(ctx, "ServiceTree不存在: user:%s %s", user, fullPath)
+			return nil, nil
+		}
+		logger.Errorf(ctx, "获取ServiceTree失败: user:%s %s", user, fullPath)
+		return nil, err
+	}
+
+	if tree.ParentID == 0 {
+		tree.Runner = new(model.Runner)
+		err = r.db.WithContext(ctx).Model(&model.Runner{}).Where("tree_id = ?", tree.ID).First(tree.Runner).Error
+		if err != nil {
+			return nil, err
+		}
+	}
+	return &tree, nil
+}
+
 func (r *ServiceTreeRepo) Children(ctx context.Context, parentId int64) ([]*model.ServiceTree, error) {
 	logger.Debug(ctx, "开始获取ServiceTree", zap.Any("parentId", parentId))
 	var trees []*model.ServiceTree

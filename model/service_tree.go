@@ -26,6 +26,7 @@ type ServiceTree struct {
 	ChildrenCount int    `json:"children_count" gorm:"default:0"`
 	ForkFromID    *int64 `json:"fork_from_id"`
 
+	RefID  int64   `json:"ref_id"`
 	Runner *Runner `json:"runner,omitempty" gorm:"foreignKey:ID;references:ID"`
 }
 

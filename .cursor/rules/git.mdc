@@ -1,4 +1,5 @@
-
-### 代码提交规范
-需要严格遵守项目目录下的[.gitignore](../../.gitignore)，防止把不需要的文件或者目录提交进去
-
+---
+description: 
+globs: 
+alwaysApply: false
+---

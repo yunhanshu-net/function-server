@@ -1,6 +1,7 @@
 package dto
 
 import (
+	"github.com/yunhanshu-net/api-server/pkg/query"
 	"time"
 
 	"github.com/yunhanshu-net/api-server/model"
@@ -63,10 +64,20 @@ func (resp *CreateRunnerFuncResp) FromModel(runnerFunc *model.RunnerFunc) {
 // 获取RunnerFunc详情
 // ===========================================================================
 
+type GetFuncRecord struct {
+	//base.PageInfoReq // 嵌入分页信息
+	query.PageInfoReq
+}
+
 // GetRunnerFuncReq 获取函数详情请求
 type GetRunnerFuncReq struct {
 	BaseRequest
 	ID int64 `json:"-"` // 函数 ID，从路径参数获取
+}
+
+type GetRunnerFuncByFullPath struct {
+	User     string `json:"user" form:"user"`
+	FullPath string `json:"full_path" form:"full_path"`
 }
 
 // GetRunnerFuncResp 获取函数详情响应
