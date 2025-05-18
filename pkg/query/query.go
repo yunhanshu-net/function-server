@@ -1,10 +1,12 @@
-package base
+package query
 
 import (
 	"context"
 	"fmt"
-	"gorm.io/gorm"
+	"strconv"
 	"strings"
+
+	"gorm.io/gorm"
 )
 
 // Paginated 分页结果结构体
@@ -23,13 +25,13 @@ type PageInfoReq struct {
 	Sorts    string `json:"sorts" form:"sorts"`
 
 	// 查询条件
-	Eq   string `form:"eq"`   // 格式：field1,value1,field2,value2
-	Like string `form:"like"` // 格式：field1,value1,field2,value2
-	In   string `form:"in"`   // 格式：field1,value1,value2,field2,value3,value4
-	Gt   string `form:"gt"`   // 格式：field1,value1,field2,value2
-	Gte  string `form:"gte"`  // 格式：field1,value1,field2,value2
-	Lt   string `form:"lt"`   // 格式：field1,value1,field2,value2
-	Lte  string `form:"lte"`  // 格式：field1,value1,field2,value2
+	Eq   []string `form:"eq"`   // 格式：field:value
+	Like []string `form:"like"` // 格式：field:value
+	In   []string `form:"in"`   // 格式：field:value
+	Gt   []string `form:"gt"`   // 格式：field:value
+	Gte  []string `form:"gte"`  // 格式：field:value
+	Lt   []string `form:"lt"`   // 格式：field:value
+	Lte  []string `form:"lte"`  // 格式：field:value
 }
 
 // QueryConfig 查询配置
@@ -92,14 +94,16 @@ func ParseSortFields(sortStr string) ([]string, error) {
 	}
 
 	parts := strings.Split(sortStr, ",")
-	if len(parts)%2 != 0 {
-		return nil, fmt.Errorf("排序字段格式错误：字段名和排序方向必须成对出现")
-	}
-
 	var sortFields []string
-	for i := 0; i < len(parts); i += 2 {
-		field := strings.TrimSpace(parts[i])
-		order := strings.TrimSpace(parts[i+1])
+
+	for _, part := range parts {
+		fieldOrder := strings.Split(part, ":")
+		if len(fieldOrder) != 2 {
+			return nil, fmt.Errorf("排序字段格式错误：%s，应为 field:order 格式", part)
+		}
+
+		field := strings.TrimSpace(fieldOrder[0])
+		order := strings.TrimSpace(fieldOrder[1])
 
 		if !SafeColumn(field) {
 			return nil, fmt.Errorf("无效的排序字段名：%s", field)
@@ -131,15 +135,17 @@ func parseFieldValues(input string) (map[string]string, error) {
 		return nil, nil
 	}
 
-	parts := strings.Split(input, ",")
-	if len(parts)%2 != 0 {
-		return nil, fmt.Errorf("参数格式错误：字段和值必须成对出现")
-	}
-
 	result := make(map[string]string)
-	for i := 0; i < len(parts); i += 2 {
-		field := strings.TrimSpace(parts[i])
-		value := strings.TrimSpace(parts[i+1])
+	pairs := strings.Split(input, ",")
+
+	for _, pair := range pairs {
+		parts := strings.Split(pair, ":")
+		if len(parts) != 2 {
+			return nil, fmt.Errorf("参数格式错误：%s，应为 field:value 格式", pair)
+		}
+
+		field := strings.TrimSpace(parts[0])
+		value := strings.TrimSpace(parts[1])
 
 		if !SafeColumn(field) {
 			return nil, fmt.Errorf("无效的字段名：%s", field)
@@ -157,44 +163,24 @@ func parseInValues(input string) (map[string][]string, error) {
 		return nil, nil
 	}
 
-	parts := strings.Split(input, ",")
-	if len(parts) < 2 {
-		return nil, fmt.Errorf("参数格式错误：至少需要字段和一个值")
-	}
-
 	result := make(map[string][]string)
-	currentField := ""
-	values := make([]string, 0)
+	pairs := strings.Split(input, ",")
 
-	for i, part := range parts {
-		part = strings.TrimSpace(part)
-
-		if i == 0 {
-			// 第一个值一定是字段名
-			if !SafeColumn(part) {
-				return nil, fmt.Errorf("无效的字段名：%s", part)
-			}
-			currentField = part
-			continue
+	for i := 0; i < len(pairs); i++ {
+		parts := strings.Split(pairs[i], ":")
+		if len(parts) != 2 {
+			return nil, fmt.Errorf("参数格式错误：%s，应为 field:value 格式", pairs[i])
 		}
 
-		// 检查是否是新的字段名
-		if SafeColumn(part) && i > 0 {
-			// 保存之前的字段和值
-			if currentField != "" && len(values) > 0 {
-				result[currentField] = values
-				values = make([]string, 0)
-			}
-			currentField = part
-		} else {
-			// 添加值
-			values = append(values, part)
-		}
-	}
+		field := strings.TrimSpace(parts[0])
+		value := strings.TrimSpace(parts[1])
 
-	// 保存最后一个字段和值
-	if currentField != "" && len(values) > 0 {
-		result[currentField] = values
+		if !SafeColumn(field) {
+			return nil, fmt.Errorf("无效的字段名：%s", field)
+		}
+
+		// 将值添加到对应字段的切片中
+		result[field] = append(result[field], value)
 	}
 
 	return result, nil
@@ -202,6 +188,14 @@ func parseInValues(input string) (map[string][]string, error) {
 
 // validateField 验证字段
 func validateField(field, operator string, config *QueryConfig) error {
+	// 如果配置为 nil，只进行基本的安全检查
+	if config == nil {
+		if !SafeColumn(field) {
+			return fmt.Errorf("无效的字段名：%s", field)
+		}
+		return nil
+	}
+
 	// 检查字段是否在黑名单中
 	if _, ok := config.Blacklist[field]; ok {
 		return fmt.Errorf("字段 %s 被禁止查询", field)
@@ -224,47 +218,79 @@ func validateField(field, operator string, config *QueryConfig) error {
 }
 
 // validateAndBuildCondition 验证并构建查询条件
-func validateAndBuildCondition(db *gorm.DB, input string, operator string, config *QueryConfig) error {
-	var conditions map[string]string
-	var err error
+func validateAndBuildCondition(db *gorm.DB, inputs []string, operator string, config *QueryConfig) error {
+	if len(inputs) == 0 {
+		return nil
+	}
 
 	if operator == "in" {
-		inConditions, err := parseInValues(input)
-		if err != nil {
-			return err
-		}
-		for field, values := range inConditions {
-			if err := validateField(field, operator, config); err != nil {
+		// 合并所有输入的条件
+		allConditions := make(map[string][]string)
+		for _, input := range inputs {
+			conditions, err := parseInValues(input)
+			if err != nil {
 				return err
 			}
+			// 合并相同字段的值
+			for field, values := range conditions {
+				if err := validateField(field, operator, config); err != nil {
+					return err
+				}
+				allConditions[field] = append(allConditions[field], values...)
+			}
+		}
+		// 构建最终的查询条件
+		for field, values := range allConditions {
 			db = db.Where(field+" IN ?", values)
 		}
 		return nil
 	}
 
-	conditions, err = parseFieldValues(input)
-	if err != nil {
-		return err
-	}
-
-	for field, value := range conditions {
-		if err := validateField(field, operator, config); err != nil {
+	// 处理其他操作符
+	for _, input := range inputs {
+		conditions, err := parseFieldValues(input)
+		if err != nil {
 			return err
 		}
 
-		switch operator {
-		case "eq":
-			db = db.Where(field+" = ?", value)
-		case "like":
-			db = db.Where(field+" LIKE ?", "%"+value+"%")
-		case "gt":
-			db = db.Where(field+" > ?", value)
-		case "gte":
-			db = db.Where(field+" >= ?", value)
-		case "lt":
-			db = db.Where(field+" < ?", value)
-		case "lte":
-			db = db.Where(field+" <= ?", value)
+		for field, value := range conditions {
+			if err := validateField(field, operator, config); err != nil {
+				return err
+			}
+
+			// 尝试将值转换为数字
+			numValue, err := strconv.ParseInt(value, 10, 64)
+			if err == nil {
+				// 如果是数字，使用数字比较
+				switch operator {
+				case "eq":
+					db = db.Where(field+" = ?", numValue)
+				case "gt":
+					db = db.Where(field+" > ?", numValue)
+				case "gte":
+					db = db.Where(field+" >= ?", numValue)
+				case "lt":
+					db = db.Where(field+" < ?", numValue)
+				case "lte":
+					db = db.Where(field+" <= ?", numValue)
+				}
+			} else {
+				// 如果不是数字，使用字符串比较
+				switch operator {
+				case "eq":
+					db = db.Where(field+" = ?", value)
+				case "like":
+					db = db.Where(field+" LIKE ?", "%"+value+"%")
+				case "gt":
+					db = db.Where(field+" > ?", value)
+				case "gte":
+					db = db.Where(field+" >= ?", value)
+				case "lt":
+					db = db.Where(field+" < ?", value)
+				case "lte":
+					db = db.Where(field+" <= ?", value)
+				}
+			}
 		}
 	}
 
@@ -295,7 +321,7 @@ func AutoPaginate[T any](
 
 	// 查询总数
 	var totalCount int64
-	if err := db.Debug().Model(model).Count(&totalCount).Error; err != nil {
+	if err := db.Model(model).Count(&totalCount).Error; err != nil {
 		return nil, fmt.Errorf("分页查询统计总数失败: %w", err)
 	}
 
@@ -376,94 +402,38 @@ func buildWhereConditions(db *gorm.DB, pageInfo *PageInfoReq, configs ...*QueryC
 // buildWhereConditionsWithoutConfig 无配置构建查询条件
 func buildWhereConditionsWithoutConfig(db *gorm.DB, pageInfo *PageInfoReq) error {
 	// 构建等于条件
-	if pageInfo.Eq != "" {
-		conditions, err := parseFieldValues(pageInfo.Eq)
-		if err != nil {
-			return err
-		}
-		for field, value := range conditions {
-			if SafeColumn(field) {
-				db = db.Where(field+" = ?", value)
-			}
-		}
+	if err := validateAndBuildCondition(db, pageInfo.Eq, "eq", nil); err != nil {
+		return err
 	}
 
 	// 构建模糊匹配条件
-	if pageInfo.Like != "" {
-		conditions, err := parseFieldValues(pageInfo.Like)
-		if err != nil {
-			return err
-		}
-		for field, value := range conditions {
-			if SafeColumn(field) {
-				db = db.Where(field+" LIKE ?", "%"+value+"%")
-			}
-		}
+	if err := validateAndBuildCondition(db, pageInfo.Like, "like", nil); err != nil {
+		return err
 	}
 
 	// 构建IN查询条件
-	if pageInfo.In != "" {
-		conditions, err := parseInValues(pageInfo.In)
-		if err != nil {
-			return err
-		}
-		for field, values := range conditions {
-			if SafeColumn(field) {
-				db = db.Where(field+" IN ?", values)
-			}
-		}
+	if err := validateAndBuildCondition(db, pageInfo.In, "in", nil); err != nil {
+		return err
 	}
 
 	// 构建大于条件
-	if pageInfo.Gt != "" {
-		conditions, err := parseFieldValues(pageInfo.Gt)
-		if err != nil {
-			return err
-		}
-		for field, value := range conditions {
-			if SafeColumn(field) {
-				db = db.Where(field+" > ?", value)
-			}
-		}
+	if err := validateAndBuildCondition(db, pageInfo.Gt, "gt", nil); err != nil {
+		return err
 	}
 
 	// 构建大于等于条件
-	if pageInfo.Gte != "" {
-		conditions, err := parseFieldValues(pageInfo.Gte)
-		if err != nil {
-			return err
-		}
-		for field, value := range conditions {
-			if SafeColumn(field) {
-				db = db.Where(field+" >= ?", value)
-			}
-		}
+	if err := validateAndBuildCondition(db, pageInfo.Gte, "gte", nil); err != nil {
+		return err
 	}
 
 	// 构建小于条件
-	if pageInfo.Lt != "" {
-		conditions, err := parseFieldValues(pageInfo.Lt)
-		if err != nil {
-			return err
-		}
-		for field, value := range conditions {
-			if SafeColumn(field) {
-				db = db.Where(field+" < ?", value)
-			}
-		}
+	if err := validateAndBuildCondition(db, pageInfo.Lt, "lt", nil); err != nil {
+		return err
 	}
 
 	// 构建小于等于条件
-	if pageInfo.Lte != "" {
-		conditions, err := parseFieldValues(pageInfo.Lte)
-		if err != nil {
-			return err
-		}
-		for field, value := range conditions {
-			if SafeColumn(field) {
-				db = db.Where(field+" <= ?", value)
-			}
-		}
+	if err := validateAndBuildCondition(db, pageInfo.Lte, "lte", nil); err != nil {
+		return err
 	}
 
 	return nil

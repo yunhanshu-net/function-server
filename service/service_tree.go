@@ -374,6 +374,28 @@ func (s *ServiceTree) GetChildren(ctx context.Context, parentID int64) ([]model.
 	return children, nil
 }
 
+func (s *ServiceTree) GetChildrenByFullPath(ctx context.Context, user string, fullPath string) ([]model.ServiceTree, error) {
+	// 如果不是根目录，先检查父级目录是否存在
+	tree, err := s.repo.GetByFullPath(ctx, user, fullPath)
+	if err != nil {
+		return nil, err
+	}
+	// 获取子目录列表
+	children, err := s.repo.GetChildren(ctx, tree.ID)
+	if err != nil {
+		return nil, fmt.Errorf("获取子目录列表失败: %w", err)
+	}
+	return children, nil
+}
+func (s *ServiceTree) GetByFullPath(ctx context.Context, user string, fullPath string) (*model.ServiceTree, error) {
+	// 如果不是根目录，先检查父级目录是否存在
+	tree, err := s.repo.GetByFullPath(ctx, user, fullPath)
+	if err != nil {
+		return nil, err
+	}
+	return tree, nil
+}
+
 // GetPath 获取服务树路径
 func (s *ServiceTree) GetPath(ctx context.Context, id int64) ([]model.ServiceTree, error) {
 	logger.Debug(ctx, "开始获取服务树路径", zap.Any("id", id))

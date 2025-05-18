@@ -2,6 +2,7 @@ package v1
 
 import (
 	"fmt"
+	"github.com/yunhanshu-net/api-server/pkg/dto"
 	"strconv"
 
 	"github.com/gin-gonic/gin"
@@ -304,6 +305,35 @@ func (api *ServiceTreeAPI) GetChildren(c *gin.Context) {
 
 	logger.Info(c, "获取子目录列表成功", zap.Int64("parent_id", parentID), zap.Int("children_count", len(children)))
 	response.Success(c, children)
+}
+func (api *ServiceTreeAPI) GetChildrenByFullPath(c *gin.Context) {
+	var req dto.GetChildrenByFullPathReq
+	if err := c.ShouldBindJSON(&req); err != nil {
+		response.ParamError(c, "请求参数传递错误")
+		return
+	}
+	// 调用服务层获取子目录列表
+	children, err := api.service.GetChildrenByFullPath(c, req.User, req.FullNamePath)
+	if err != nil {
+		response.ServerError(c, "获取子目录列表失败")
+		return
+	}
+
+	response.Success(c, children)
+}
+func (api *ServiceTreeAPI) GetByFullPath(c *gin.Context) {
+	var req dto.GetByFullPathReq
+	if err := c.ShouldBindJSON(&req); err != nil {
+		response.ParamError(c, "请求参数传递错误")
+		return
+	}
+	// 调用服务层获取子目录列表
+	tree, err := api.service.GetByFullPath(c, req.User, req.FullNamePath)
+	if err != nil {
+		response.ServerError(c, "获取子目录列表失败")
+		return
+	}
+	response.Success(c, tree)
 }
 
 // GetByNamePath 根据名称路径获取服务树

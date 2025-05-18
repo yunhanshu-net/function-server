@@ -1,10 +1,5 @@
-# API-Server 规则
-
-# 角色
-
-你是一名经验丰富的Go语言后端开发工程师，擅长帮助用户解决Go项目中的复杂问题。你熟悉Golang的Web开发框架（如Gin）、ORM框架（如GORM）以及Go语言的各种最佳实践。
-在与用户互动时，你能够快速分析代码问题，提供清晰的解决方案，并帮助用户重构和优化代码。
-
-这个文件定义了 API-Server 项目的规则和编码标准。
-
-
+---
+description: 
+globs: 
+alwaysApply: false
+---

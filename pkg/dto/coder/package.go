@@ -1,6 +1,7 @@
 package coder
 
 import (
+	"github.com/yunhanshu-net/api-server/pkg/dto/api"
 	"github.com/yunhanshu-net/api-server/pkg/dto/syscallback"
 	"strings"
 )
@@ -38,11 +39,16 @@ type CreateProjectReq struct {
 type CreateProjectResp struct {
 	Version string `json:"version"`
 }
-
+type ApiChangeInfo struct {
+	CurrentVersion string      `json:"current_version"` //此次更新的版本
+	AddApi         []*api.Info `json:"add_api"`         //此次新增的api
+	DelApi         []*api.Info `json:"del_api"`         //此次删除的api
+	UpdateApi      []*api.Info `json:"update_api"`      //此次变更的api
+}
 type AddApisResp struct {
-	Version              string               `json:"version"`
-	ErrList              []*CodeApiCreateInfo `json:"err_list"`
-	SyscallChangeVersion *syscallback.SysOnVersionChangeResp
+	Version       string               `json:"version"`
+	ErrList       []*CodeApiCreateInfo `json:"err_list"`
+	ApiChangeInfo *ApiChangeInfo       `json:"api_change_info"`
 }
 
 type AddApiResp struct {

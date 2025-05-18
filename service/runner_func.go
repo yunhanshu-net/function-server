@@ -6,7 +6,6 @@ import (
 	"github.com/pkg/errors"
 	"github.com/yunhanshu-net/api-server/pkg/dto/coder"
 	"strings"
-	"sync"
 	"time"
 
 	"github.com/yunhanshu-net/api-server/model"
@@ -16,40 +15,12 @@ import (
 	"gorm.io/gorm"
 )
 
-// RunnerFuncService 函数服务接口
-type RunnerFuncService interface {
-	Create(ctx context.Context, runnerFunc *model.RunnerFunc) error
-	Get(ctx context.Context, id int64) (*model.RunnerFunc, error)
-	Update(ctx context.Context, id int64, updateData *model.RunnerFunc) error
-	Delete(ctx context.Context, id int64, operator string) error
-	List(ctx context.Context, page, pageSize int, conditions map[string]interface{}) ([]model.RunnerFunc, int64, error)
-	GetByRunner(ctx context.Context, runnerID int64) ([]model.RunnerFunc, error)
-	Fork(ctx context.Context, sourceID int64, targetTreeID int64, targetRunnerID int64, newName string, operator string) (*model.RunnerFunc, error)
-	GetVersionHistory(ctx context.Context, funcID int64) ([]model.FuncVersion, error)
-	SaveVersion(ctx context.Context, funcID int64, version string, comment string, operator string) error
-	UpdateStatus(ctx context.Context, id int64, status int) error
-	GetRunnerFuncByID(ctx context.Context, id int64) (*model.RunnerFunc, error)
-}
-
 // RunnerFunc 函数服务实现
 type RunnerFunc struct {
 	runnerFuncRepo  *repo.RunnerFuncRepo
 	runnerRepo      *repo.RunnerRepo
 	serviceTreeRepo *repo.ServiceTreeRepo
 	serviceTree     *ServiceTree
-}
-
-// RunnerFuncParam 全局参数
-var (
-	runcherFuncService RunnerFuncService
-	runcherFuncMutex   = &sync.RWMutex{}
-)
-
-// GetRunnerFuncService 获取RunnerFunc服务实例
-func GetRunnerFuncService() RunnerFuncService {
-	runcherFuncMutex.RLock()
-	defer runcherFuncMutex.RUnlock()
-	return runcherFuncService
 }
 
 // NewRunnerFunc 创建函数服务
@@ -60,12 +31,6 @@ func NewRunnerFunc(db *gorm.DB) *RunnerFunc {
 		serviceTree:     NewServiceTree(db),
 		runnerRepo:      repo.NewRunnerRepo(db),
 	}
-
-	// 设置全局实例
-	runcherFuncMutex.Lock()
-	runcherFuncService = svc
-	runcherFuncMutex.Unlock()
-
 	return svc
 }
 
@@ -122,21 +87,23 @@ func (s *RunnerFunc) Create(ctx context.Context, runnerFunc *model.RunnerFunc) e
 	//}
 
 	service := GetRuncherService()
-	r := &coder.AddApiReq{
+	r := &coder.AddApisReq{
 		Runner: &coder.Runner{
-			Language: gotRunner.Language,
+			Language: "go",
 			Name:     gotRunner.Name,
 			Version:  gotRunner.Version,
 			User:     gotRunner.User,
 		},
-		CodeApi: &coder.CodeApi{
-			EnName:         runnerFunc.Name,
-			CnName:         runnerFunc.Title,
-			Desc:           runnerFunc.Description,
-			Language:       gotRunner.Language,
-			Code:           runnerFunc.Code,
-			Package:        packageTree.Name,
-			AbsPackagePath: packageTree.GetSubFullPath(),
+		CodeApis: []*coder.CodeApi{
+			{
+				EnName:         runnerFunc.Name,
+				CnName:         runnerFunc.Title,
+				Desc:           runnerFunc.Description,
+				Language:       "go",
+				Code:           runnerFunc.Code,
+				Package:        packageTree.Name,
+				AbsPackagePath: packageTree.GetSubFullPath(),
+			},
 		},
 	}
 	rsp, err := service.AddAPI2(ctx, r)
@@ -144,78 +111,88 @@ func (s *RunnerFunc) Create(ctx context.Context, runnerFunc *model.RunnerFunc) e
 		logger.Error(ctx, "添加api失败", err, zap.Int64("func_id", runnerFunc.ID))
 		return err
 	}
-	if len(rsp.SyscallChangeVersion.AddApi) == 0 {
-		return errors.New("未成功添加api")
+	//logger.Infof(ctx, "rsp:%+v", rsp.SyscallChangeVersion)
+	//logger.Infof(ctx, "rsp.add:%+v", rsp.SyscallChangeVersion.AddApi)
+	//
+	//if len(rsp.SyscallChangeVersion.AddApi) != 1 {
+	//	return errors.New("未成功添加api")
+	//}
+	logger.Infof(ctx, "rsp:%+v", rsp)
+
+	addAPIs := rsp.ApiChangeInfo.AddApi
+	for _, addAPI := range addAPIs {
+
+		fc := *runnerFunc
+		fc.Name = addAPI.EnglishName
+		fc.Title = addAPI.ChineseName
+
+		fc.Tags = strings.Join(addAPI.Labels, ",")
+		req, err := addAPI.ParamsIn.JSONRawMessage()
+		if err != nil {
+			return errors.Wrapf(err, "ParamsIn.JSONRawMessage()转换失败")
+		}
+		fc.Request = req
+		resp, err := addAPI.ParamsOut.JSONRawMessage()
+		if err != nil {
+			return errors.Wrapf(err, "ParamsOut.JSONRawMessage()转换失败")
+		}
+		path := gotRunner.User + "/" + gotRunner.Name + "/" + strings.Trim(addAPI.Router, "/")
+		fc.Response = resp
+		fc.Path = path
+		fc.Method = addAPI.Method
+		fc.Callbacks = strings.Join(addAPI.Callbacks, ",")
+		fc.UseTables = strings.Join(addAPI.UseTables, ",")
+
+		// 设置默认值
+		if fc.User == "" {
+			fc.User = "admin"
+		}
+
+		// 创建函数
+		err = s.runnerFuncRepo.Create(ctx, &fc)
+		if err != nil {
+			logger.Error(ctx, "创建函数失败", err)
+			return fmt.Errorf("创建函数失败: %w", err)
+		}
+
+		tree := &model.ServiceTree{
+			Type:     model.ServiceTreeTypeFunction,
+			ParentID: fc.TreeID,
+			Name:     fc.Name,
+			Title:    fc.Title,
+			User:     t.User,
+			RefID:    fc.ID,
+			Base: model.Base{
+				CreatedBy: fc.CreatedBy,
+				UpdatedBy: fc.UpdatedBy,
+			},
+		}
+
+		err = s.serviceTree.Create(ctx, tree)
+		if err != nil {
+			return err
+		}
+
 	}
 
-	for _, addApi := range rsp.SyscallChangeVersion.AddApi {
-		if addApi.EnglishName == runnerFunc.Name {
-			runnerFunc.Tags = strings.Join(addApi.Labels, ",")
-			req, err := addApi.ParamsIn.JSONRawMessage()
-			if err != nil {
-				return errors.Wrapf(err, "ParamsIn.JSONRawMessage()转换失败")
-			}
-			runnerFunc.Request = req
-			resp, err := addApi.ParamsOut.JSONRawMessage()
-			if err != nil {
-				return errors.Wrapf(err, "ParamsOut.JSONRawMessage()转换失败")
-			}
-			path := gotRunner.User + "/" + gotRunner.Name + "/" + strings.Trim(addApi.Router, "/")
-			runnerFunc.Request = resp
-			runnerFunc.Path = path
-			runnerFunc.Method = addApi.Method
-			runnerFunc.Callbacks = strings.Join(addApi.Callbacks, ",")
-			runnerFunc.UseTables = strings.Join(addApi.UseTables, ",")
-		}
-	}
 	err = s.runnerRepo.Update(ctx, runnerFunc.RunnerID, &model.Runner{Version: rsp.Version})
 	if err != nil {
 		logger.Error(ctx, "更新版本失败", err, zap.Int64("func_id", runnerFunc.ID))
 		return err
 	}
-
-	// 设置默认值
-	if runnerFunc.User == "" {
-		runnerFunc.User = "admin"
-	}
-
-	// 创建函数
-	err = s.runnerFuncRepo.Create(ctx, runnerFunc)
-	if err != nil {
-		logger.Error(ctx, "创建函数失败", err)
-		return fmt.Errorf("创建函数失败: %w", err)
-	}
-
-	tree := &model.ServiceTree{
-		Type:     model.ServiceTreeTypeFunction,
-		ParentID: runnerFunc.TreeID,
-		Name:     runnerFunc.Name,
-		Title:    runnerFunc.Title,
-		User:     t.User,
-		Base: model.Base{
-			CreatedBy: runnerFunc.CreatedBy,
-			UpdatedBy: runnerFunc.UpdatedBy,
-		},
-	}
-
-	err = s.serviceTree.Create(ctx, tree)
-	if err != nil {
-		return err
-	}
-
 	// 创建版本记录
-	version := &model.FuncVersion{
-		FuncID:    runnerFunc.ID,
-		Version:   rsp.Version,
-		Comment:   runnerFunc.Description,
-		CreatedBy: runnerFunc.CreatedBy,
-		CreatedAt: runnerFunc.CreatedAt,
-	}
-
-	if err := s.runnerFuncRepo.SaveVersion(ctx, version); err != nil {
-		logger.Error(ctx, "保存函数版本失败", err, zap.Int64("func_id", runnerFunc.ID))
-		// 不返回错误，因为函数已创建成功
-	}
+	//version := &model.FuncVersion{
+	//	FuncID:    runnerFunc.ID,
+	//	Version:   rsp.Version,
+	//	Comment:   runnerFunc.Description,
+	//	CreatedBy: runnerFunc.CreatedBy,
+	//	CreatedAt: runnerFunc.CreatedAt,
+	//}
+	//
+	//if err := s.runnerFuncRepo.SaveVersion(ctx, version); err != nil {
+	//	logger.Error(ctx, "保存函数版本失败", err, zap.Int64("func_id", runnerFunc.ID))
+	//	// 不返回错误，因为函数已创建成功
+	//}
 
 	logger.Info(ctx, "创建函数成功", zap.Int64("id", runnerFunc.ID), zap.String("name", runnerFunc.Name))
 	return nil
@@ -225,6 +202,24 @@ func (s *RunnerFunc) Create(ctx context.Context, runnerFunc *model.RunnerFunc) e
 func (s *RunnerFunc) Get(ctx context.Context, id int64) (*model.RunnerFunc, error) {
 	logger.Debug(ctx, "开始获取函数详情", zap.Int64("id", id))
 	return s.runnerFuncRepo.Get(ctx, id)
+}
+
+// GetByTreeId GetByTreeId
+func (s *RunnerFunc) GetByTreeId(ctx context.Context, id int64) (*model.RunnerFunc, error) {
+	get, err := s.serviceTreeRepo.Get(ctx, id)
+	if err != nil {
+		return nil, err
+	}
+	logger.Debug(ctx, "开始获取函数详情", zap.Int64("id", id))
+	return s.runnerFuncRepo.Get(ctx, get.RefID)
+}
+
+func (s *RunnerFunc) GetByFullPath(ctx context.Context, user string, fullPath string) (*model.RunnerFunc, error) {
+	srvTree, err := s.serviceTreeRepo.GetByFullPath(ctx, user, fullPath)
+	if err != nil {
+		return nil, err
+	}
+	return s.runnerFuncRepo.Get(ctx, srvTree.RefID)
 }
 
 // GetRunnerFuncByID 通过ID获取运行函数（适配接口）
