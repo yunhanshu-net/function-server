@@ -4,7 +4,8 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"github.com/yunhanshu-net/api-server/pkg/dto/coder"
+	"github.com/yunhanshu-net/pkg/dto/runnerproject"
+	"github.com/yunhanshu-net/runcher/pkg/dto/coder"
 	"strings"
 	"time"
 
@@ -107,13 +108,13 @@ func (s *ServiceTree) Create(ctx context.Context, serviceTree *model.ServiceTree
 	if serviceTree.Type == model.ServiceTreeTypePackage {
 		runcherServiceIns := GetRuncherService()
 
+		runner, err := runnerproject.NewRunner(gotRunner.User, gotRunner.Name, gotRunner.Version)
+		if err != nil {
+			return err
+		}
+		runner.Language = "go"
 		pkg := &coder.BizPackage{
-			Runner: &coder.Runner{
-				Language: gotRunner.Language,
-				Name:     gotRunner.Name,
-				Version:  gotRunner.Version,
-				User:     gotRunner.User,
-			},
+			Runner:         runner,
 			AbsPackagePath: serviceTree.GetSubFullPath(),
 			Language:       gotRunner.Language,
 			EnName:         serviceTree.Name,

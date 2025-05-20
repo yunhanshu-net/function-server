@@ -1,8 +1,8 @@
 package coder
 
 import (
-	"github.com/yunhanshu-net/api-server/pkg/dto/api"
 	"github.com/yunhanshu-net/api-server/pkg/dto/syscallback"
+	"github.com/yunhanshu-net/sdk-go/pkg/dto/api"
 	"strings"
 )
 
