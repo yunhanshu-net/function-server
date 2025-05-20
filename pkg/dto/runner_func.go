@@ -1,7 +1,7 @@
 package dto
 
 import (
-	"github.com/yunhanshu-net/api-server/pkg/query"
+	"github.com/yunhanshu-net/pkg/query"
 	"time"
 
 	"github.com/yunhanshu-net/api-server/model"
@@ -185,7 +185,8 @@ type DeleteRunnerFuncResp struct {
 
 // ListRunnerFuncReq 获取函数列表请求
 type ListRunnerFuncReq struct {
-	BasePaginatedRequest
+	//BasePaginatedRequest
+	query.PageInfoReq
 	User     string `json:"user" form:"user"`           // 用户名过滤
 	RunnerID int64  `json:"runner_id" form:"runner_id"` // 所属Runner ID过滤
 	TreeID   int64  `json:"tree_id" form:"tree_id"`     // 所属目录 ID过滤

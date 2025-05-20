@@ -4,7 +4,8 @@ import (
 	"context"
 	"fmt"
 	"github.com/pkg/errors"
-	"github.com/yunhanshu-net/api-server/pkg/dto/coder"
+	"github.com/yunhanshu-net/pkg/dto/runnerproject"
+	"github.com/yunhanshu-net/runcher/pkg/dto/coder"
 	"strings"
 	"time"
 
@@ -86,14 +87,14 @@ func (s *RunnerFunc) Create(ctx context.Context, runnerFunc *model.RunnerFunc) e
 	}
 	//}
 
+	runner, err := runnerproject.NewRunner(gotRunner.User, gotRunner.Name, gotRunner.Version)
+	if err != nil {
+		return err
+	}
+	runner.Language = "go"
 	service := GetRuncherService()
 	r := &coder.AddApisReq{
-		Runner: &coder.Runner{
-			Language: "go",
-			Name:     gotRunner.Name,
-			Version:  gotRunner.Version,
-			User:     gotRunner.User,
-		},
+		Runner: runner,
 		CodeApis: []*coder.CodeApi{
 			{
 				EnName:         runnerFunc.Name,
@@ -126,7 +127,7 @@ func (s *RunnerFunc) Create(ctx context.Context, runnerFunc *model.RunnerFunc) e
 		fc.Name = addAPI.EnglishName
 		fc.Title = addAPI.ChineseName
 
-		fc.Tags = strings.Join(addAPI.Labels, ",")
+		fc.Tags = strings.Join(addAPI.Tags, ",")
 		req, err := addAPI.ParamsIn.JSONRawMessage()
 		if err != nil {
 			return errors.Wrapf(err, "ParamsIn.JSONRawMessage()转换失败")

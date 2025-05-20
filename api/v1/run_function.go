@@ -13,6 +13,7 @@ import (
 	"gorm.io/gorm"
 	"io"
 	"net/http"
+	"net/url"
 	"strconv"
 	"time"
 )
@@ -37,22 +38,7 @@ func (r *Functions) Run(c *gin.Context) {
 		Runner: c.Param("runner"),
 		Router: c.Param("router"),
 	}
-	if req.Method == http.MethodGet {
-		req.RawQuery = c.Request.URL.RawQuery
-	} else {
-		b, err := io.ReadAll(c.Request.Body)
-		if err != nil {
-			panic(err)
-		}
-		defer c.Request.Body.Close()
-		req.Body = string(b)
-	}
-	rn, err := r.runner.GetByUserName(c, req.User, req.Runner)
-	if err != nil {
-		response.ParamError(c, fmt.Sprintf("获取runner失败：%s", err.Error()))
-		return
-	}
-	req.Version = rn.Version
+
 	log := model.FuncRunRecord{
 		Base: model.Base{
 			CreatedBy: c.GetString("user"),
@@ -62,6 +48,52 @@ func (r *Functions) Run(c *gin.Context) {
 		Request: json.RawMessage(req.Body),
 		StartTs: time.Now().UnixMilli(),
 	}
+	if req.Method == http.MethodGet {
+		req.RawQuery = c.Request.URL.RawQuery
+		rawQuery := c.Request.URL.RawQuery
+		if rawQuery == "" {
+			response.ParamError(c, fmt.Sprintf("url.ParseQuery 失败："))
+			return
+		}
+		values, err := url.ParseQuery(rawQuery)
+		if err != nil {
+			response.ParamError(c, fmt.Sprintf("url.ParseQuery 失败：%s", err.Error()))
+			return
+		}
+
+		// 将 url.Values 转换为 map[string]interface{}
+		params := make(map[string]interface{})
+		for key, value := range values {
+			if len(value) == 1 {
+				params[key] = value[0]
+			} else {
+				params[key] = value
+			}
+		}
+
+		marshal, err := json.Marshal(params)
+		if err != nil {
+			response.ParamError(c, fmt.Sprintf("json.Marshal 失败：%s", err.Error()))
+			return
+		}
+		log.Request = marshal
+	} else {
+
+		b, err := io.ReadAll(c.Request.Body)
+		if err != nil {
+			panic(err)
+		}
+		defer c.Request.Body.Close()
+		req.Body = string(b)
+		log.Request = json.RawMessage(req.Body)
+	}
+	rn, err := r.runner.GetByUserName(c, req.User, req.Runner)
+	if err != nil {
+		response.ParamError(c, fmt.Sprintf("获取runner失败：%s", err.Error()))
+		return
+	}
+	req.Version = rn.Version
+
 	function2, err := r.runcher.RunFunction2(c, req)
 	if err != nil {
 		response.ServerError(c, err.Error())
