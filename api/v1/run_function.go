@@ -10,6 +10,7 @@ import (
 	"github.com/yunhanshu-net/api-server/pkg/logger"
 	"github.com/yunhanshu-net/api-server/pkg/response"
 	"github.com/yunhanshu-net/api-server/service"
+	resp "github.com/yunhanshu-net/sdk-go/pkg/dto/response"
 	"gorm.io/gorm"
 	"io"
 	"net/http"
@@ -60,15 +61,16 @@ func (r *Functions) Run(c *gin.Context) {
 			response.ParamError(c, fmt.Sprintf("url.ParseQuery 失败：%s", err.Error()))
 			return
 		}
+		//q := query.PageInfoReq{}
+		//err = form.NewDecoder().Decode(&q, values)
+		//if err != nil {
+		//	panic(err)
+		//}
 
 		// 将 url.Values 转换为 map[string]interface{}
 		params := make(map[string]interface{})
 		for key, value := range values {
-			if len(value) == 1 {
-				params[key] = value[0]
-			} else {
-				params[key] = value
-			}
+			params[key] = value
 		}
 
 		marshal, err := json.Marshal(params)
@@ -110,7 +112,7 @@ func (r *Functions) Run(c *gin.Context) {
 	log.FuncId = int64(funcId)
 
 	log.Response = function2.Data
-	var res runcher.Body
+	var res resp.RunFunctionResp
 	err = json.Unmarshal(function2.Data, &res)
 	if err != nil {
 		log.Status = "fail"

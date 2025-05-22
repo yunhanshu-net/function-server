@@ -2,9 +2,11 @@ package service
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"github.com/pkg/errors"
 	"github.com/yunhanshu-net/pkg/dto/runnerproject"
+	"github.com/yunhanshu-net/pkg/x/jsonx"
 	"github.com/yunhanshu-net/runcher/pkg/dto/coder"
 	"strings"
 	"time"
@@ -128,17 +130,17 @@ func (s *RunnerFunc) Create(ctx context.Context, runnerFunc *model.RunnerFunc) e
 		fc.Title = addAPI.ChineseName
 
 		fc.Tags = strings.Join(addAPI.Tags, ",")
-		req, err := addAPI.ParamsIn.JSONRawMessage()
-		if err != nil {
-			return errors.Wrapf(err, "ParamsIn.JSONRawMessage()转换失败")
-		}
-		fc.Request = req
-		resp, err := addAPI.ParamsOut.JSONRawMessage()
-		if err != nil {
-			return errors.Wrapf(err, "ParamsOut.JSONRawMessage()转换失败")
-		}
+		//req, err := addAPI.ParamsIn
+		//if err != nil {
+		//	return errors.Wrapf(err, "ParamsIn.JSONRawMessage()转换失败")
+		//}
+		fc.Request = json.RawMessage(jsonx.String(addAPI.ParamsIn))
+		//resp, err :=
+		//if err != nil {
+		//	return errors.Wrapf(err, "ParamsOut.JSONRawMessage()转换失败")
+		//}
 		path := gotRunner.User + "/" + gotRunner.Name + "/" + strings.Trim(addAPI.Router, "/")
-		fc.Response = resp
+		fc.Response = json.RawMessage(jsonx.String(addAPI.ParamsOut))
 		fc.Path = path
 		fc.Method = addAPI.Method
 		fc.Callbacks = strings.Join(addAPI.Callbacks, ",")
