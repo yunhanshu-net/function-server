@@ -749,10 +749,10 @@ func (s *ServiceTree) CreateWithTx(ctx context.Context, tx *gorm.DB, serviceTree
 		serviceTree.FullIDPath = fmt.Sprintf("%d", serviceTree.ID)
 
 		// 构建FullNamePath
-		serviceTree.FullNamePath = serviceTree.Name
+		serviceTree.FullNamePath = serviceTree.User + "/" + serviceTree.Name
 
-		// 根目录级别为0
-		serviceTree.Level = 0
+		// 根目录级别为1
+		serviceTree.Level = 1
 
 		// 更新路径字段
 		if err := s.repo.UpdateWithTx(ctx, tx, serviceTree.ID, &model.ServiceTree{

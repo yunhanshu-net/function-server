@@ -10,11 +10,11 @@ import (
 	"github.com/yunhanshu-net/api-server/pkg/logger"
 	"github.com/yunhanshu-net/api-server/pkg/response"
 	"github.com/yunhanshu-net/api-server/service"
+	"github.com/yunhanshu-net/pkg/x/urlx"
 	resp "github.com/yunhanshu-net/sdk-go/pkg/dto/response"
 	"gorm.io/gorm"
 	"io"
 	"net/http"
-	"net/url"
 	"strconv"
 	"time"
 )
@@ -51,29 +51,8 @@ func (r *Functions) Run(c *gin.Context) {
 	}
 	if req.Method == http.MethodGet {
 		req.RawQuery = c.Request.URL.RawQuery
-		rawQuery := c.Request.URL.RawQuery
-		if rawQuery == "" {
-			response.ParamError(c, fmt.Sprintf("url.ParseQuery 失败："))
-			return
-		}
-		values, err := url.ParseQuery(rawQuery)
-		if err != nil {
-			response.ParamError(c, fmt.Sprintf("url.ParseQuery 失败：%s", err.Error()))
-			return
-		}
-		//q := query.PageInfoReq{}
-		//err = form.NewDecoder().Decode(&q, values)
-		//if err != nil {
-		//	panic(err)
-		//}
-
-		// 将 url.Values 转换为 map[string]interface{}
-		params := make(map[string]interface{})
-		for key, value := range values {
-			params[key] = value
-		}
-
-		marshal, err := json.Marshal(params)
+		toMap := urlx.QueryToMap(req.RawQuery)
+		marshal, err := json.Marshal(toMap)
 		if err != nil {
 			response.ParamError(c, fmt.Sprintf("json.Marshal 失败：%s", err.Error()))
 			return

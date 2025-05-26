@@ -1,10 +1,14 @@
 package v1
 
 import (
-	"github.com/yunhanshu-net/api-server/pkg/db"
-	"github.com/yunhanshu-net/pkg/query"
+	"fmt"
 	"strconv"
+	"strings"
 	"time"
+
+	"github.com/yunhanshu-net/api-server/pkg/db"
+	"github.com/yunhanshu-net/api-server/pkg/dto/base"
+	"github.com/yunhanshu-net/pkg/query"
 
 	"github.com/gin-gonic/gin"
 	"github.com/yunhanshu-net/api-server/model"
@@ -174,27 +178,34 @@ func (api *RunnerFuncAPI) GetByTreeId(c *gin.Context) {
 func (api *RunnerFuncAPI) GetByFullPath(c *gin.Context) {
 	// 使用GetRunnerFuncReq DTO
 	var req dto.GetRunnerFuncByFullPath
-	err := c.ShouldBindQuery(&req)
+	err := c.ShouldBindUri(&req)
 	if err != nil {
 		logger.Errorf(c, "解析RunnerFunc 失败:%s", err)
 		response.ParamError(c, "无效的ID")
 		return
 	}
-
-	// 调用服务层获取函数详情
-	runnerFunc, err := api.service.GetByFullPath(c, req.User, req.FullPath)
+	var r model.ServiceTree
+	err = db.GetDB().Model(&model.ServiceTree{}).Where("full_name_path = ? AND method = ?", strings.TrimPrefix(req.FullPath, "/"), strings.ToUpper(c.Query("method"))).First(&r).Error
 	if err != nil {
-		logger.Errorf(c, "获取RunnerFunc详情失败:%s req:%+v", err, req)
-		response.ServerError(c, "获取函数详情失败")
+		response.ServerError(c, err.Error())
 		return
-	}
 
-	if runnerFunc == nil {
-		logger.Errorf(c, "函数不存在:%s req:%+v", err, req)
-		response.NotFound(c, "函数不存在")
+	}
+	f := model.RunnerFunc{}
+	err = db.GetDB().Model(&model.RunnerFunc{}).Where("id = ?", r.RefID).First(&f).Error
+	if err != nil {
+		response.ServerError(c, err.Error())
 		return
 	}
-	response.Success(c, runnerFunc)
+	//runnerFunc, err := api.service.GetByFullPath(c, c.Query("method"), req.FullPath)
+	// 调用服务层获取函数详情
+
+	//if err != nil {
+	//	logger.Errorf(c, "函数不存在:%s req:%+v", err, req)
+	//	response.NotFound(c, "函数不存在")
+	//	return
+	//}
+	response.Success(c, f)
 }
 func (api *RunnerFuncAPI) GetFuncRecord(c *gin.Context) {
 	// 使用GetRunnerFuncReq DTO
@@ -527,4 +538,73 @@ func (api *RunnerFuncAPI) UpdateStatus(c *gin.Context) {
 
 	logger.Info(c, "更新RunnerFunc状态成功", zap.Int64("id", id), zap.Int("status", req.Status))
 	response.Success(c, resp)
+}
+
+// GetUserRecentFuncRecords 获取用户最近执行过的函数记录（去重）
+// @Summary 获取用户最近执行函数记录
+// @Description 获取当前用户最近执行过的函数记录，每个函数只显示最新的一次执行记录，按执行时间倒序排列
+// @Tags RunnerFunc
+// @Accept json
+// @Produce json
+// @Param page query int false "页码" default(1)
+// @Param page_size query int false "每页数量" default(20)
+// @Success 200 {object} base.Paginated[dto.GetUserRecentFuncRecordsResp] "成功"
+// @Failure 400 {object} response.ErrorResponse "参数错误"
+// @Failure 500 {object} response.ErrorResponse "服务器错误"
+// @Router /api/v1/runner-func/recent-records [get]
+func (api *RunnerFuncAPI) GetUserRecentFuncRecords(c *gin.Context) {
+	logger.Debug(c, "开始处理获取用户最近执行函数记录请求")
+
+	// 解析请求参数
+	var req dto.GetUserRecentFuncRecordsReq
+	if err := c.ShouldBindQuery(&req); err != nil {
+		logger.Error(c, "解析请求参数失败", err)
+		response.ParamError(c, "参数解析失败: "+err.Error())
+		return
+	}
+
+	// 从中间件获取用户信息
+	user := c.GetString("user")
+	if user == "" {
+		logger.Error(c, "获取用户信息失败", fmt.Errorf("用户信息为空"))
+		response.ParamError(c, "用户信息获取失败")
+		return
+	}
+
+	// 设置默认分页参数
+	if req.Page <= 0 {
+		req.Page = 1
+	}
+	if req.PageSize <= 0 || req.PageSize > 100 {
+		req.PageSize = 20
+	}
+
+	logger.Debug(c, "开始获取用户最近执行函数记录",
+		zap.String("user", user),
+		zap.Int("page", req.Page),
+		zap.Int("pageSize", req.PageSize))
+
+	// 调用服务层获取详细信息
+	records, total, err := api.service.GetUserRecentFuncRecordsWithDetails(c, user, req.Page, req.PageSize)
+	if err != nil {
+		logger.Error(c, "获取用户最近执行函数记录失败", err, zap.String("user", user))
+		response.ServerError(c, "获取用户最近执行函数记录失败: "+err.Error())
+		return
+	}
+
+	// 构建分页响应
+	pageResp := base.Paginated[interface{}]{
+		Items:       records,
+		CurrentPage: req.Page,
+		TotalCount:  total,
+		TotalPages:  int((total + int64(req.PageSize) - 1) / int64(req.PageSize)),
+		PageSize:    req.PageSize,
+	}
+
+	logger.Info(c, "获取用户最近执行函数记录成功",
+		zap.String("user", user),
+		zap.Int("count", len(records)),
+		zap.Int64("total", total))
+
+	response.Success(c, pageResp)
 }
