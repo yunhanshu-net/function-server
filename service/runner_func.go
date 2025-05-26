@@ -4,14 +4,16 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"strings"
+	"time"
+
 	"github.com/pkg/errors"
 	"github.com/yunhanshu-net/pkg/dto/runnerproject"
 	"github.com/yunhanshu-net/pkg/x/jsonx"
 	"github.com/yunhanshu-net/runcher/pkg/dto/coder"
-	"strings"
-	"time"
 
 	"github.com/yunhanshu-net/api-server/model"
+	"github.com/yunhanshu-net/api-server/pkg/dto"
 	"github.com/yunhanshu-net/api-server/pkg/logger"
 	"github.com/yunhanshu-net/api-server/repo"
 	"go.uber.org/zap"
@@ -217,12 +219,12 @@ func (s *RunnerFunc) GetByTreeId(ctx context.Context, id int64) (*model.RunnerFu
 	return s.runnerFuncRepo.Get(ctx, get.RefID)
 }
 
-func (s *RunnerFunc) GetByFullPath(ctx context.Context, user string, fullPath string) (*model.RunnerFunc, error) {
-	srvTree, err := s.serviceTreeRepo.GetByFullPath(ctx, user, fullPath)
+func (s *RunnerFunc) GetByFullPath(ctx context.Context, method string, fullPath string) (*model.RunnerFunc, error) {
+	runnerFunc, err := s.runnerFuncRepo.GetByFullPath(ctx, method, fullPath)
 	if err != nil {
 		return nil, err
 	}
-	return s.runnerFuncRepo.Get(ctx, srvTree.RefID)
+	return runnerFunc, nil
 }
 
 // GetRunnerFuncByID 通过ID获取运行函数（适配接口）
@@ -402,4 +404,80 @@ func (s *RunnerFunc) UpdateStatus(ctx context.Context, id int64, status int) err
 
 	logger.Info(ctx, "更新函数状态成功", zap.Int64("id", id), zap.Int("status", status))
 	return nil
+}
+
+// GetUserRecentFuncRecords 获取用户最近执行过的函数记录（去重）
+func (s *RunnerFunc) GetUserRecentFuncRecords(ctx context.Context, user string, page, pageSize int) ([]model.FuncRunRecord, int64, error) {
+	logger.Debug(ctx, "开始获取用户最近执行函数记录", zap.String("user", user), zap.Int("page", page), zap.Int("pageSize", pageSize))
+
+	// 参数校验
+	if user == "" {
+		return nil, 0, errors.New("用户名不能为空")
+	}
+
+	if page <= 0 {
+		page = 1
+	}
+
+	if pageSize <= 0 || pageSize > 100 {
+		pageSize = 20 // 默认每页20条
+	}
+
+	// 调用仓库层获取数据
+	records, total, err := s.runnerFuncRepo.GetUserRecentFuncRecords(ctx, user, page, pageSize)
+	if err != nil {
+		logger.Error(ctx, "获取用户最近执行函数记录失败", err, zap.String("user", user))
+		return nil, 0, fmt.Errorf("获取用户最近执行函数记录失败: %w", err)
+	}
+
+	logger.Info(ctx, "获取用户最近执行函数记录成功",
+		zap.String("user", user),
+		zap.Int("count", len(records)),
+		zap.Int64("total", total))
+
+	return records, total, nil
+}
+
+// GetUserRecentFuncRecordsWithDetails 获取用户最近执行过的函数记录详细信息（去重）
+func (s *RunnerFunc) GetUserRecentFuncRecordsWithDetails(ctx context.Context, user string, page, pageSize int) ([]*dto.GetUserRecentFuncRecordsResp, int64, error) {
+	logger.Debug(ctx, "开始获取用户最近执行函数记录详细信息", zap.String("user", user), zap.Int("page", page), zap.Int("pageSize", pageSize))
+
+	// 获取基础记录
+	records, total, err := s.GetUserRecentFuncRecords(ctx, user, page, pageSize)
+	if err != nil {
+		return nil, 0, err
+	}
+
+	// 构建详细信息响应
+	var respList []*dto.GetUserRecentFuncRecordsResp
+	for _, record := range records {
+		// 获取关联的详细信息
+		_, runnerFunc, runner, serviceTree, err := s.runnerFuncRepo.GetFuncRunRecordWithDetails(ctx, record.ID)
+		if err != nil {
+			logger.Warn(ctx, "获取函数执行记录详细信息失败", zap.Error(err), zap.Int64("record_id", record.ID))
+			// 继续处理其他记录，不中断整个流程
+			continue
+		}
+
+		// 获取执行次数
+		runCount, err := s.runnerFuncRepo.GetUserFuncRunCount(ctx, user, record.FuncId)
+		if err != nil {
+			logger.Warn(ctx, "获取函数执行次数失败", zap.Error(err), zap.Int64("func_id", record.FuncId))
+			runCount = 0 // 设置默认值
+		}
+
+		// 构建响应对象
+		resp := &dto.GetUserRecentFuncRecordsResp{}
+		resp.FromFuncRunRecord(&record, runnerFunc, runner, serviceTree)
+		resp.RunCount = runCount
+
+		respList = append(respList, resp)
+	}
+
+	logger.Info(ctx, "获取用户最近执行函数记录详细信息成功",
+		zap.String("user", user),
+		zap.Int("count", len(respList)),
+		zap.Int64("total", total))
+
+	return respList, total, nil
 }
