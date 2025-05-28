@@ -182,11 +182,9 @@ func (r *RunnerFuncRepo) Fork(ctx context.Context, sourceID int64, targetTreeID 
 
 	// 创建版本记录
 	version := &model.FuncVersion{
-		FuncID:    newFunc.ID,
-		Version:   "1.0.0",
-		CreatedBy: operator,
-		CreatedAt: newFunc.CreatedAt,
-		Comment:   "从 " + sourceFunc.Name + " Fork",
+		FuncID:  newFunc.ID,
+		Version: "1.0.0",
+		Comment: "从 " + sourceFunc.Name + " Fork",
 	}
 
 	// 保存版本记录

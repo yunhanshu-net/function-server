@@ -50,7 +50,7 @@ func (api *ServiceTreeAPI) Create(c *gin.Context) {
 	}
 
 	// 调用服务层创建目录
-	if err := api.service.Create(c, &serviceTree); err != nil {
+	if err := api.service.CreateNode(c, &serviceTree); err != nil {
 		logger.Error(c, "创建ServiceTree失败", err)
 		response.ServerError(c, "创建目录失败: "+err.Error())
 		return
@@ -358,7 +358,9 @@ func (api *ServiceTreeAPI) GetByFullPath(c *gin.Context) {
 func (api *ServiceTreeAPI) Tree(c *gin.Context) {
 
 	var list []*model.ServiceTree
-	db.GetDB().Model(&model.ServiceTree{}).Where("full_name_path like ?", strings.TrimPrefix(c.Param("full_name_path"), "/")+"%").Find(&list)
+	fullNamePath := strings.Trim(c.Param("full_name_path"), "/")
+	fullNamePath = "/" + fullNamePath + "/"
+	db.GetDB().Model(&model.ServiceTree{}).Where("full_name_path like ?", fullNamePath+"%").Find(&list)
 	tree := model.BuildServiceTree(list)
 	response.Success(c, tree)
 }

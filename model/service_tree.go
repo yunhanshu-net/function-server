@@ -1,6 +1,9 @@
 package model
 
-import "strings"
+import (
+	"github.com/yunhanshu-net/pkg/x/slicesx"
+	"strings"
+)
 
 const (
 	ServiceTreeTypePackage  = "package"
@@ -76,5 +79,8 @@ func (s *ServiceTree) GetSubFullPath() string {
 	if len(split) == 1 {
 		return s.FullNamePath
 	}
+	split = slicesx.RemoveBy(split, func(s string) bool {
+		return s == ""
+	})
 	return strings.Join(split[1:], "/")
 }

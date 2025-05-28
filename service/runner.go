@@ -118,10 +118,12 @@ func (s *Runner) Create(ctx context.Context, runner *model.Runner) error {
 
 	// 创建版本
 	version := &model.RunnerVersion{
-		RunnerID:  runner.ID,
-		Version:   versionString,
-		Comment:   "初始版本",
-		CreatedBy: runner.CreatedBy}
+		RunnerID: runner.ID,
+		Version:  versionString,
+		Comment:  "初始版本",
+		Base: model.Base{
+			CreatedBy: runner.CreatedBy,
+		}}
 
 	err = s.repo.SaveVersionWithTx(ctx, tx, version)
 	if err != nil {
@@ -306,11 +308,9 @@ func (s *Runner) Fork(ctx context.Context, id int64, operator string) (*model.Ru
 
 	// 创建新Runner的版本记录
 	version := &model.RunnerVersion{
-		RunnerID:  newRunner.ID,
-		Version:   "1.0.0",
-		CreatedBy: operator,
-		CreatedAt: timeToModelTime(now),
-		Comment:   fmt.Sprintf("从 %s(%d) Fork", sourceRunner.Name, sourceRunner.ID),
+		RunnerID: newRunner.ID,
+		Version:  "1.0.0",
+		Comment:  fmt.Sprintf("从 %s(%d) Fork", sourceRunner.Name, sourceRunner.ID),
 	}
 
 	err = s.repo.SaveVersion(ctx, version)
@@ -398,11 +398,9 @@ func (s *Runner) SaveVersion(ctx context.Context, runnerID int64, version string
 
 	// 保存版本记录
 	versionRecord := &model.RunnerVersion{
-		RunnerID:  runnerID,
-		Version:   version,
-		CreatedBy: operator,
-		CreatedAt: timeToModelTime(time.Now()),
-		Comment:   comment,
+		RunnerID: runnerID,
+		Version:  version,
+		Comment:  comment,
 	}
 
 	if err := s.repo.SaveVersion(ctx, versionRecord); err != nil {

@@ -84,6 +84,7 @@ func Init() *gin.Engine {
 			runnerFunc.POST("", runnerFuncAPI.Create)                            // 创建函数
 			runnerFunc.GET("", runnerFuncAPI.List)                               // 获取函数列表
 			runnerFunc.GET("/:id", runnerFuncAPI.Get)                            // 获取函数详情
+			runnerFunc.GET("/:id/versions", runnerFuncAPI.Versions)              // 获取函数详情
 			runnerFunc.GET("/tree/:tree_id", runnerFuncAPI.GetByTreeId)          // 获取函数详情
 			runnerFunc.GET("/full-path/*full_path", runnerFuncAPI.GetByFullPath) // 获取函数详情
 
