@@ -4,13 +4,11 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"strings"
-	"time"
-
 	"github.com/pkg/errors"
 	"github.com/yunhanshu-net/pkg/dto/runnerproject"
 	"github.com/yunhanshu-net/pkg/x/jsonx"
 	"github.com/yunhanshu-net/runcher/pkg/dto/coder"
+	"strings"
 
 	"github.com/yunhanshu-net/api-server/model"
 	"github.com/yunhanshu-net/api-server/pkg/dto"
@@ -41,8 +39,6 @@ func NewRunnerFunc(db *gorm.DB) *RunnerFunc {
 
 // Create 创建函数
 func (s *RunnerFunc) Create(ctx context.Context, runnerFunc *model.RunnerFunc) error {
-	logger.Debug(ctx, "开始创建函数", zap.String("name", runnerFunc.Name))
-
 	// 业务逻辑校验
 	if runnerFunc.Name == "" {
 		return errors.New("函数名称不能为空")
@@ -99,6 +95,7 @@ func (s *RunnerFunc) Create(ctx context.Context, runnerFunc *model.RunnerFunc) e
 	service := GetRuncherService()
 	r := &coder.AddApisReq{
 		Runner: runner,
+		Msg:    runnerFunc.Description,
 		CodeApis: []*coder.CodeApi{
 			{
 				EnName:         runnerFunc.Name,
@@ -116,12 +113,6 @@ func (s *RunnerFunc) Create(ctx context.Context, runnerFunc *model.RunnerFunc) e
 		logger.Error(ctx, "添加api失败", err, zap.Int64("func_id", runnerFunc.ID))
 		return err
 	}
-	//logger.Infof(ctx, "rsp:%+v", rsp.SyscallChangeVersion)
-	//logger.Infof(ctx, "rsp.add:%+v", rsp.SyscallChangeVersion.AddApi)
-	//
-	//if len(rsp.SyscallChangeVersion.AddApi) != 1 {
-	//	return errors.New("未成功添加api")
-	//}
 	logger.Infof(ctx, "rsp:%+v", rsp)
 
 	addAPIs := rsp.ApiChangeInfo.AddApi
@@ -130,36 +121,24 @@ func (s *RunnerFunc) Create(ctx context.Context, runnerFunc *model.RunnerFunc) e
 		fc := *runnerFunc
 		fc.Name = addAPI.EnglishName
 		fc.Title = addAPI.ChineseName
-
 		fc.Tags = strings.Join(addAPI.Tags, ",")
-		//req, err := addAPI.ParamsIn
-		//if err != nil {
-		//	return errors.Wrapf(err, "ParamsIn.JSONRawMessage()转换失败")
-		//}
 		fc.Request = json.RawMessage(jsonx.String(addAPI.ParamsIn))
-		//resp, err :=
-		//if err != nil {
-		//	return errors.Wrapf(err, "ParamsOut.JSONRawMessage()转换失败")
-		//}
-		path := gotRunner.User + "/" + gotRunner.Name + "/" + strings.Trim(addAPI.Router, "/")
+		path := "/" + gotRunner.User + "/" + gotRunner.Name + "/" + strings.Trim(addAPI.Router, "/") + "/"
 		fc.Response = json.RawMessage(jsonx.String(addAPI.ParamsOut))
 		fc.Path = path
 		fc.Method = addAPI.Method
 		fc.Callbacks = strings.Join(addAPI.Callbacks, ",")
 		fc.UseTables = strings.Join(addAPI.UseTables, ",")
-
 		// 设置默认值
 		if fc.User == "" {
 			fc.User = "admin"
 		}
-
 		// 创建函数
 		err = s.runnerFuncRepo.Create(ctx, &fc)
 		if err != nil {
 			logger.Error(ctx, "创建函数失败", err)
 			return fmt.Errorf("创建函数失败: %w", err)
 		}
-
 		tree := &model.ServiceTree{
 			Type:     model.ServiceTreeTypeFunction,
 			ParentID: fc.TreeID,
@@ -167,37 +146,41 @@ func (s *RunnerFunc) Create(ctx context.Context, runnerFunc *model.RunnerFunc) e
 			Title:    fc.Title,
 			User:     t.User,
 			RefID:    fc.ID,
-			Base: model.Base{
-				CreatedBy: fc.CreatedBy,
-				UpdatedBy: fc.UpdatedBy,
-			},
+			Method:   fc.Method,
+			Base:     model.Base{CreatedBy: fc.CreatedBy, UpdatedBy: fc.UpdatedBy},
 		}
-
-		err = s.serviceTree.Create(ctx, tree)
+		err = s.serviceTree.CreateNode(ctx, tree)
 		if err != nil {
 			return err
 		}
+		go func() {
+			s.runnerFuncRepo.SaveVersion(ctx, &model.FuncVersion{
+				Base:     model.Base{CreatedBy: fc.CreatedBy, UpdatedBy: fc.UpdatedBy},
+				FuncID:   fc.ID,
+				Version:  rsp.Version,
+				MetaData: json.RawMessage(jsonx.String(addAPI)),
+				Hash:     rsp.Hash,
+			})
+		}()
 
 	}
 
-	err = s.runnerRepo.Update(ctx, runnerFunc.RunnerID, &model.Runner{Version: rsp.Version})
-	if err != nil {
-		logger.Error(ctx, "更新版本失败", err, zap.Int64("func_id", runnerFunc.ID))
-		return err
-	}
-	// 创建版本记录
-	//version := &model.FuncVersion{
-	//	FuncID:    runnerFunc.ID,
-	//	Version:   rsp.Version,
-	//	Comment:   runnerFunc.Description,
-	//	CreatedBy: runnerFunc.CreatedBy,
-	//	CreatedAt: runnerFunc.CreatedAt,
-	//}
-	//
-	//if err := s.runnerFuncRepo.SaveVersion(ctx, version); err != nil {
-	//	logger.Error(ctx, "保存函数版本失败", err, zap.Int64("func_id", runnerFunc.ID))
-	//	// 不返回错误，因为函数已创建成功
-	//}
+	go func() {
+		err = s.runnerRepo.Update(ctx, runnerFunc.RunnerID, &model.Runner{Version: rsp.Version})
+		if err != nil {
+			logger.Error(ctx, "更新版本失败", err, zap.Int64("func_id", runnerFunc.ID))
+		}
+		s.runnerRepo.CreateRunnerVersion(ctx, &model.RunnerVersion{
+			Base:     model.Base{CreatedBy: runnerFunc.CreatedBy, UpdatedBy: runnerFunc.UpdatedBy},
+			Desc:     runnerFunc.Description,
+			Log:      rsp.ApiChangeInfo.GetChangeLog(),
+			Version:  rsp.Version,
+			RunnerID: runnerFunc.RunnerID,
+			MetaData: json.RawMessage(jsonx.String(rsp)),
+			Hash:     rsp.Hash,
+		})
+
+	}()
 
 	logger.Info(ctx, "创建函数成功", zap.Int64("id", runnerFunc.ID), zap.String("name", runnerFunc.Name))
 	return nil
@@ -207,6 +190,13 @@ func (s *RunnerFunc) Create(ctx context.Context, runnerFunc *model.RunnerFunc) e
 func (s *RunnerFunc) Get(ctx context.Context, id int64) (*model.RunnerFunc, error) {
 	logger.Debug(ctx, "开始获取函数详情", zap.Int64("id", id))
 	return s.runnerFuncRepo.Get(ctx, id)
+}
+func (s *RunnerFunc) Versions(ctx context.Context, id int64) ([]model.FuncVersion, error) {
+	versions, err := s.runnerFuncRepo.GetVersions(ctx, id)
+	if err != nil {
+		return nil, err
+	}
+	return versions, nil
 }
 
 // GetByTreeId GetByTreeId
@@ -356,11 +346,9 @@ func (s *RunnerFunc) SaveVersion(ctx context.Context, funcID int64, version stri
 
 	// 创建版本记录
 	funcVersion := &model.FuncVersion{
-		FuncID:    funcID,
-		Version:   version,
-		Comment:   comment,
-		CreatedBy: operator,
-		CreatedAt: model.Time(time.Now()),
+		FuncID:  funcID,
+		Version: version,
+		Comment: comment,
 	}
 
 	// 保存版本记录

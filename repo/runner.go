@@ -10,23 +10,6 @@ import (
 	"gorm.io/gorm"
 )
 
-// RunnerRepository Runner仓库接口
-type RunnerRepository interface {
-	Create(ctx context.Context, runner *model.Runner) error
-	Get(ctx context.Context, id int64) (*model.Runner, error)
-	Update(ctx context.Context, id int64, runner *model.Runner) error
-	Delete(ctx context.Context, id int64) error
-	List(ctx context.Context, page, pageSize int, conditions map[string]interface{}) ([]model.Runner, int64, error)
-	GetByName(ctx context.Context, name string) (*model.Runner, error)
-	SetDeletedBy(ctx context.Context, id int64, deletedBy string) error
-	UpdateStatus(ctx context.Context, id int64, status int) error
-	SaveVersion(ctx context.Context, version *model.RunnerVersion) error
-	GetVersions(ctx context.Context, runnerID int64) ([]model.RunnerVersion, error)
-	BatchCreate(ctx context.Context, runners []model.Runner) error
-	CreateWithTx(ctx context.Context, tx *gorm.DB, runner *model.Runner) error
-	SaveVersionWithTx(ctx context.Context, tx *gorm.DB, version *model.RunnerVersion) error
-}
-
 // RunnerRepo Runner仓库实现
 type RunnerRepo struct {
 	db *gorm.DB
@@ -55,6 +38,10 @@ func (r *RunnerRepo) Create(ctx context.Context, runner *model.Runner) error {
 //		}
 //	}
 //}
+
+func (r *RunnerRepo) CreateRunnerVersion(ctx context.Context, v *model.RunnerVersion) error {
+	return r.db.WithContext(ctx).Create(v).Error
+}
 
 // Get 获取Runner详情
 func (r *RunnerRepo) Get(ctx context.Context, id int64) (*model.Runner, error) {

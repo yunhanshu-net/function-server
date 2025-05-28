@@ -142,6 +142,38 @@ func (api *RunnerFuncAPI) Get(c *gin.Context) {
 	logger.Info(c, "获取RunnerFunc详情成功", zap.Int64("id", id))
 	response.Success(c, runnerFunc)
 }
+func (api *RunnerFuncAPI) Versions(c *gin.Context) {
+	// 使用GetRunnerFuncReq DTO
+	var req dto.GetRunnerFuncReq
+	id, err := strconv.ParseInt(c.Param("id"), 10, 64)
+	if err != nil {
+		logger.Error(c, "解析RunnerFunc ID失败", err, zap.String("id_param", c.Param("id")))
+		response.ParamError(c, "无效的ID")
+		return
+	}
+	req.ID = id
+
+	logger.Debug(c, "开始处理RunnerFunc详情请求", zap.Int64("id", id))
+
+	// 调用服务层获取函数详情
+	runnerFunc, err := api.service.Versions(c, id)
+	if err != nil {
+		logger.Error(c, "获取RunnerFunc详情失败", err, zap.Int64("id", id))
+		response.ServerError(c, "获取函数详情失败")
+		return
+	}
+
+	if runnerFunc == nil {
+		logger.Info(c, "RunnerFunc不存在", zap.Int64("id", id))
+		response.NotFound(c, "函数不存在")
+		return
+	}
+
+	// 直接创建响应DTO
+
+	logger.Info(c, "获取RunnerFunc详情成功", zap.Int64("id", id))
+	response.Success(c, runnerFunc)
+}
 func (api *RunnerFuncAPI) GetByTreeId(c *gin.Context) {
 	// 使用GetRunnerFuncReq DTO
 	var req dto.GetRunnerFuncReq
@@ -185,7 +217,11 @@ func (api *RunnerFuncAPI) GetByFullPath(c *gin.Context) {
 		return
 	}
 	var r model.ServiceTree
-	err = db.GetDB().Model(&model.ServiceTree{}).Where("full_name_path = ? AND method = ?", strings.TrimPrefix(req.FullPath, "/"), strings.ToUpper(c.Query("method"))).First(&r).Error
+	fullPath := strings.Trim(req.FullPath, "/")
+	fullPath = "/" + fullPath + "/"
+	err = db.GetDB().Model(&model.ServiceTree{}).
+		Where("full_name_path = ? AND method = ?", fullPath,
+			strings.ToUpper(c.Query("method"))).First(&r).Error
 	if err != nil {
 		response.ServerError(c, err.Error())
 		return
@@ -197,14 +233,6 @@ func (api *RunnerFuncAPI) GetByFullPath(c *gin.Context) {
 		response.ServerError(c, err.Error())
 		return
 	}
-	//runnerFunc, err := api.service.GetByFullPath(c, c.Query("method"), req.FullPath)
-	// 调用服务层获取函数详情
-
-	//if err != nil {
-	//	logger.Errorf(c, "函数不存在:%s req:%+v", err, req)
-	//	response.NotFound(c, "函数不存在")
-	//	return
-	//}
 	response.Success(c, f)
 }
 func (api *RunnerFuncAPI) GetFuncRecord(c *gin.Context) {

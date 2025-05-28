@@ -35,10 +35,8 @@ func (s *ServiceTree) GetRepo() *repo.ServiceTreeRepo {
 	return s.repo
 }
 
-// Create 创建服务树
-func (s *ServiceTree) Create(ctx context.Context, serviceTree *model.ServiceTree) error {
-	logger.Debug(ctx, "开始创建服务树", zap.String("name", serviceTree.Name))
-
+// CreateNode 创建服务树
+func (s *ServiceTree) CreateNode(ctx context.Context, serviceTree *model.ServiceTree) error {
 	// 业务逻辑校验
 	if serviceTree.Title == "" {
 		return errors.New("标题不能为空")
@@ -46,7 +44,9 @@ func (s *ServiceTree) Create(ctx context.Context, serviceTree *model.ServiceTree
 	if serviceTree.Name == "" {
 		return errors.New("名称不能为空")
 	}
-
+	if serviceTree.ParentID == 0 {
+		return fmt.Errorf("ParentID 不能为0")
+	}
 	// 检查同级目录下名称是否已存在
 	existing, err := s.repo.GetByName(ctx, serviceTree.ParentID, serviceTree.Name)
 	if err != nil {
@@ -57,10 +57,6 @@ func (s *ServiceTree) Create(ctx context.Context, serviceTree *model.ServiceTree
 	}
 	if existing != nil {
 		return errors.New("同级目录下名称已存在")
-	}
-
-	if serviceTree.ParentID == 0 {
-		return fmt.Errorf("ParentID 不能为0")
 	}
 
 	parent, err := s.repo.Get(ctx, serviceTree.ParentID)
@@ -87,10 +83,10 @@ func (s *ServiceTree) Create(ctx context.Context, serviceTree *model.ServiceTree
 	}
 
 	// 使用ID构建FullIDPath
-	serviceTree.FullIDPath = parent.FullIDPath + "/" + fmt.Sprintf("%d", serviceTree.ID)
+	serviceTree.FullIDPath = parent.FullIDPath + fmt.Sprintf("%d", serviceTree.ID) + "/"
 
 	// 构建FullNamePath
-	serviceTree.FullNamePath = parent.FullNamePath + "/" + serviceTree.Name
+	serviceTree.FullNamePath = parent.FullNamePath + serviceTree.Name + "/"
 
 	// 设置当前目录的级别
 	serviceTree.Level = parent.Level + 1
@@ -714,10 +710,10 @@ func (s *ServiceTree) CreateWithTx(ctx context.Context, tx *gorm.DB, serviceTree
 		}
 
 		// 使用ID构建FullIDPath
-		serviceTree.FullIDPath = parent.FullIDPath + "/" + fmt.Sprintf("%d", serviceTree.ID)
+		serviceTree.FullIDPath = parent.FullIDPath + "/" + fmt.Sprintf("%d", serviceTree.ID) + "/"
 
 		// 构建FullNamePath
-		serviceTree.FullNamePath = parent.FullNamePath + "/" + serviceTree.Name
+		serviceTree.FullNamePath = parent.FullNamePath + "/" + serviceTree.Name + "/"
 
 		// 设置当前目录的级别
 		serviceTree.Level = parent.Level + 1
@@ -746,10 +742,10 @@ func (s *ServiceTree) CreateWithTx(ctx context.Context, tx *gorm.DB, serviceTree
 		}
 
 		// 使用ID构建FullIDPath
-		serviceTree.FullIDPath = fmt.Sprintf("%d", serviceTree.ID)
+		serviceTree.FullIDPath = "/" + fmt.Sprintf("%d", serviceTree.ID) + "/"
 
 		// 构建FullNamePath
-		serviceTree.FullNamePath = serviceTree.User + "/" + serviceTree.Name
+		serviceTree.FullNamePath = "/" + serviceTree.User + "/" + serviceTree.Name + "/"
 
 		// 根目录级别为1
 		serviceTree.Level = 1
