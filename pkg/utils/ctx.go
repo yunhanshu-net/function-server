@@ -5,7 +5,7 @@ import (
 	"fmt"
 
 	"github.com/gin-gonic/gin"
-	"github.com/yunhanshu-net/api-server/pkg/logger"
+	"github.com/yunhanshu-net/function-server/pkg/logger"
 	"github.com/yunhanshu-net/pkg/constants"
 )
 

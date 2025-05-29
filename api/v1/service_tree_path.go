@@ -4,9 +4,9 @@ import (
 	"fmt"
 
 	"github.com/gin-gonic/gin"
-	"github.com/yunhanshu-net/api-server/pkg/logger"
-	"github.com/yunhanshu-net/api-server/pkg/response"
-	"github.com/yunhanshu-net/api-server/service"
+	"github.com/yunhanshu-net/function-server/pkg/logger"
+	"github.com/yunhanshu-net/function-server/pkg/response"
+	"github.com/yunhanshu-net/function-server/service"
 	"go.uber.org/zap"
 	"gorm.io/gorm"
 )

@@ -5,8 +5,8 @@ import (
 	"errors"
 	"go.uber.org/zap"
 
-	"github.com/yunhanshu-net/api-server/model"
-	"github.com/yunhanshu-net/api-server/pkg/logger"
+	"github.com/yunhanshu-net/function-server/model"
+	"github.com/yunhanshu-net/function-server/pkg/logger"
 	"gorm.io/gorm"
 )
 

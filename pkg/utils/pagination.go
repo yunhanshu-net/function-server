@@ -6,7 +6,7 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/yunhanshu-net/api-server/pkg/logger"
+	"github.com/yunhanshu-net/function-server/pkg/logger"
 	"go.uber.org/zap"
 	"gorm.io/gorm"
 )

@@ -3,7 +3,7 @@ package dto
 import (
 	"time"
 
-	"github.com/yunhanshu-net/api-server/model"
+	"github.com/yunhanshu-net/function-server/model"
 )
 
 // ===========================================================================

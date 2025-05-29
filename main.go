@@ -11,11 +11,11 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/yunhanshu-net/api-server/pkg/config"
-	"github.com/yunhanshu-net/api-server/pkg/db"
-	"github.com/yunhanshu-net/api-server/pkg/logger"
-	"github.com/yunhanshu-net/api-server/router"
-	"github.com/yunhanshu-net/api-server/service"
+	"github.com/yunhanshu-net/function-server/pkg/config"
+	"github.com/yunhanshu-net/function-server/pkg/db"
+	"github.com/yunhanshu-net/function-server/pkg/logger"
+	"github.com/yunhanshu-net/function-server/router"
+	"github.com/yunhanshu-net/function-server/service"
 )
 
 func main() {
