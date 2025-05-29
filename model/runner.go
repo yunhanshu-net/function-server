@@ -1,5 +1,7 @@
 package model
 
+import "gorm.io/gorm"
+
 type Runner struct {
 	Base
 	Title       string `json:"title"`
@@ -18,9 +20,15 @@ type Runner struct {
 	ForkFromVersion string `json:"fork_from_version"`
 	ForkFromID      *int64 `json:"fork_from_id"`
 
-	User string `json:"user"`
+	FullNamePath string `json:"full_name_path" gorm:"-"`
+	User         string `json:"user"`
 }
 
 func (r *Runner) TableName() string {
 	return "runner"
+}
+
+func (r *Runner) AfterFind(db *gorm.DB) error {
+	r.FullNamePath = r.User + "/" + r.Name
+	return nil
 }

@@ -3,6 +3,8 @@ package dto
 import (
 	"time"
 
+	"github.com/yunhanshu-net/pkg/query"
+
 	"github.com/yunhanshu-net/api-server/model"
 )
 
@@ -23,6 +25,8 @@ type CreateRunnerFuncReq struct {
 	IsPublic bool   `json:"is_public"`                  // 是否公开
 	Content  string `json:"content"`                    // 函数内容
 	Config   string `json:"config"`                     // 函数配置
+
+	Code string `json:"code"`
 }
 
 // ToModel 转换为模型
@@ -61,10 +65,20 @@ func (resp *CreateRunnerFuncResp) FromModel(runnerFunc *model.RunnerFunc) {
 // 获取RunnerFunc详情
 // ===========================================================================
 
+type GetFuncRecord struct {
+	//base.PageInfoReq // 嵌入分页信息
+	query.PageInfoReq
+}
+
 // GetRunnerFuncReq 获取函数详情请求
 type GetRunnerFuncReq struct {
 	BaseRequest
 	ID int64 `json:"-"` // 函数 ID，从路径参数获取
+}
+
+type GetRunnerFuncByFullPath struct {
+	FullPath string `json:"full_path" form:"full_path" uri:"full_path"`
+	Method   string `json:"method" form:"method" uri:"method"`
 }
 
 // GetRunnerFuncResp 获取函数详情响应
@@ -172,7 +186,8 @@ type DeleteRunnerFuncResp struct {
 
 // ListRunnerFuncReq 获取函数列表请求
 type ListRunnerFuncReq struct {
-	BasePaginatedRequest
+	//BasePaginatedRequest
+	query.PageInfoReq
 	User     string `json:"user" form:"user"`           // 用户名过滤
 	RunnerID int64  `json:"runner_id" form:"runner_id"` // 所属Runner ID过滤
 	TreeID   int64  `json:"tree_id" form:"tree_id"`     // 所属目录 ID过滤
@@ -371,4 +386,53 @@ type UpdateStatusResp struct {
 	ID      int64 `json:"id"`      // 函数 ID
 	Status  int   `json:"status"`  // 状态
 	Success bool  `json:"success"` // 是否成功
+}
+
+// ===========================================================================
+// 获取用户最近执行函数记录（去重）
+// ===========================================================================
+
+// GetUserRecentFuncRecordsReq 获取用户最近执行函数记录请求
+type GetUserRecentFuncRecordsReq struct {
+	BaseRequest
+	query.PageInfoReq
+	User string `json:"user" form:"user"` // 用户名，从中间件获取
+}
+
+// GetUserRecentFuncRecordsResp 获取用户最近执行函数记录响应（单个项）
+type GetUserRecentFuncRecordsResp struct {
+	FuncID       int64     `json:"func_id"`        // 函数ID
+	FuncName     string    `json:"func_name"`      // 函数名称
+	FuncTitle    string    `json:"func_title"`     // 函数标题
+	RunnerID     int64     `json:"runner_id"`      // Runner ID
+	RunnerName   string    `json:"runner_name"`    // Runner名称
+	RunnerTitle  string    `json:"runner_title"`   // Runner标题
+	TreeID       int64     `json:"tree_id"`        // 服务树ID
+	FullNamePath string    `json:"full_name_path"` // 完整路径
+	LastRunTime  time.Time `json:"last_run_time"`  // 最后执行时间
+	Status       string    `json:"status"`         // 最后执行状态
+	RunCount     int64     `json:"run_count"`      // 执行次数
+}
+
+// FromFuncRunRecord 从函数运行记录转换
+func (resp *GetUserRecentFuncRecordsResp) FromFuncRunRecord(record *model.FuncRunRecord, runnerFunc *model.RunnerFunc, runner *model.Runner, serviceTree *model.ServiceTree) {
+	resp.FuncID = record.FuncId
+	resp.LastRunTime = time.Unix(record.EndTs/1000, 0) // 假设EndTs是毫秒时间戳
+	resp.Status = record.Status
+
+	if runnerFunc != nil {
+		resp.FuncName = runnerFunc.Name
+		resp.FuncTitle = runnerFunc.Title
+		resp.RunnerID = runnerFunc.RunnerID
+		resp.TreeID = runnerFunc.TreeID
+	}
+
+	if runner != nil {
+		resp.RunnerName = runner.Name
+		resp.RunnerTitle = runner.Title
+	}
+
+	if serviceTree != nil {
+		resp.FullNamePath = serviceTree.FullNamePath
+	}
 }

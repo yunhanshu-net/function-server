@@ -1,7 +1,7 @@
 package dto
 
 import (
-	"github.com/yunhanshu-net/api-server/pkg/utils"
+	"github.com/yunhanshu-net/pkg/query"
 )
 
 // BaseRequest 基础请求结构体
@@ -12,5 +12,5 @@ type BaseRequest struct {
 // BasePaginatedRequest 基础分页请求结构体
 type BasePaginatedRequest struct {
 	BaseRequest
-	utils.PageInfo // 嵌入分页信息
+	query.PageInfoReq // 嵌入分页信息
 }

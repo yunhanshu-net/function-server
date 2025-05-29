@@ -59,6 +59,7 @@ func Init(cfg config.DBConfig) error {
 		&model.RunnerFunc{},
 		&model.ServiceTree{},
 		&model.RunnerVersion{},
+		&model.FuncRunRecord{},
 	)
 	if err != nil {
 		return err

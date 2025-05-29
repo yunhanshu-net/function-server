@@ -26,6 +26,6 @@
   },
   "runcher": {
     "nats_url": "nats://127.0.0.1:4222",
-    "timeout": 5
+    "timeout": 50
   }
 } 

@@ -2,7 +2,10 @@ package v1
 
 import (
 	"fmt"
+	"github.com/yunhanshu-net/api-server/pkg/db"
+	"github.com/yunhanshu-net/api-server/pkg/dto"
 	"strconv"
+	"strings"
 
 	"github.com/gin-gonic/gin"
 	"github.com/yunhanshu-net/api-server/model"
@@ -47,7 +50,7 @@ func (api *ServiceTreeAPI) Create(c *gin.Context) {
 	}
 
 	// 调用服务层创建目录
-	if err := api.service.Create(c, &serviceTree); err != nil {
+	if err := api.service.CreateNode(c, &serviceTree); err != nil {
 		logger.Error(c, "创建ServiceTree失败", err)
 		response.ServerError(c, "创建目录失败: "+err.Error())
 		return
@@ -304,6 +307,62 @@ func (api *ServiceTreeAPI) GetChildren(c *gin.Context) {
 
 	logger.Info(c, "获取子目录列表成功", zap.Int64("parent_id", parentID), zap.Int("children_count", len(children)))
 	response.Success(c, children)
+}
+func (api *ServiceTreeAPI) GetChildrenByFullPath(c *gin.Context) {
+	var req dto.GetChildrenByFullPathReq
+	if err := c.ShouldBindJSON(&req); err != nil {
+		response.ParamError(c, "请求参数传递错误")
+		return
+	}
+	// 调用服务层获取子目录列表
+	children, err := api.service.GetChildrenByFullPath(c, req.User, req.FullNamePath)
+	if err != nil {
+		response.ServerError(c, "获取子目录列表失败")
+		return
+	}
+
+	response.Success(c, children)
+}
+
+func (api *ServiceTreeAPI) GetChildrenByPath(c *gin.Context) {
+	path := c.Param("full_path")
+	var s model.ServiceTree
+	err := db.GetDB().Model(&model.ServiceTree{}).Where("full_name_path = ?", strings.TrimPrefix(path, "/")).First(&s).Error
+	if err != nil {
+		response.ServerError(c, err.Error())
+		return
+	}
+	var list []model.ServiceTree
+	err = db.GetDB().Model(&model.ServiceTree{}).Where("parent_id = ?", s.ID).Find(&list).Error
+	if err != nil {
+		response.ServerError(c, err.Error())
+		return
+	}
+
+	response.Success(c, list)
+}
+func (api *ServiceTreeAPI) GetByFullPath(c *gin.Context) {
+	var req dto.GetByFullPathReq
+	if err := c.ShouldBindJSON(&req); err != nil {
+		response.ParamError(c, "请求参数传递错误")
+		return
+	}
+	// 调用服务层获取子目录列表
+	tree, err := api.service.GetByFullPath(c, req.User, req.FullNamePath)
+	if err != nil {
+		response.ServerError(c, "获取子目录列表失败")
+		return
+	}
+	response.Success(c, tree)
+}
+func (api *ServiceTreeAPI) Tree(c *gin.Context) {
+
+	var list []*model.ServiceTree
+	fullNamePath := strings.Trim(c.Param("full_name_path"), "/")
+	fullNamePath = "/" + fullNamePath + "/"
+	db.GetDB().Model(&model.ServiceTree{}).Where("full_name_path like ?", fullNamePath+"%").Find(&list)
+	tree := model.BuildServiceTree(list)
+	response.Success(c, tree)
 }
 
 // GetByNamePath 根据名称路径获取服务树

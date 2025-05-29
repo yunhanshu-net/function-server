@@ -4,7 +4,8 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"github.com/yunhanshu-net/api-server/pkg/dto/coder"
+	"github.com/yunhanshu-net/pkg/dto/runnerproject"
+	"github.com/yunhanshu-net/runcher/pkg/dto/coder"
 	"strings"
 	"time"
 
@@ -34,10 +35,8 @@ func (s *ServiceTree) GetRepo() *repo.ServiceTreeRepo {
 	return s.repo
 }
 
-// Create 创建服务树
-func (s *ServiceTree) Create(ctx context.Context, serviceTree *model.ServiceTree) error {
-	logger.Debug(ctx, "开始创建服务树", zap.String("name", serviceTree.Name))
-
+// CreateNode 创建服务树
+func (s *ServiceTree) CreateNode(ctx context.Context, serviceTree *model.ServiceTree) error {
 	// 业务逻辑校验
 	if serviceTree.Title == "" {
 		return errors.New("标题不能为空")
@@ -45,7 +44,9 @@ func (s *ServiceTree) Create(ctx context.Context, serviceTree *model.ServiceTree
 	if serviceTree.Name == "" {
 		return errors.New("名称不能为空")
 	}
-
+	if serviceTree.ParentID == 0 {
+		return fmt.Errorf("ParentID 不能为0")
+	}
 	// 检查同级目录下名称是否已存在
 	existing, err := s.repo.GetByName(ctx, serviceTree.ParentID, serviceTree.Name)
 	if err != nil {
@@ -56,10 +57,6 @@ func (s *ServiceTree) Create(ctx context.Context, serviceTree *model.ServiceTree
 	}
 	if existing != nil {
 		return errors.New("同级目录下名称已存在")
-	}
-
-	if serviceTree.ParentID == 0 {
-		return fmt.Errorf("ParentID 不能为0")
 	}
 
 	parent, err := s.repo.Get(ctx, serviceTree.ParentID)
@@ -86,10 +83,10 @@ func (s *ServiceTree) Create(ctx context.Context, serviceTree *model.ServiceTree
 	}
 
 	// 使用ID构建FullIDPath
-	serviceTree.FullIDPath = parent.FullIDPath + "/" + fmt.Sprintf("%d", serviceTree.ID)
+	serviceTree.FullIDPath = parent.FullIDPath + fmt.Sprintf("%d", serviceTree.ID) + "/"
 
 	// 构建FullNamePath
-	serviceTree.FullNamePath = parent.FullNamePath + "/" + serviceTree.Name
+	serviceTree.FullNamePath = parent.FullNamePath + serviceTree.Name + "/"
 
 	// 设置当前目录的级别
 	serviceTree.Level = parent.Level + 1
@@ -104,24 +101,27 @@ func (s *ServiceTree) Create(ctx context.Context, serviceTree *model.ServiceTree
 		// 不返回错误，因为目录已经创建成功
 	}
 
-	runcherServiceIns := GetRuncherService()
+	if serviceTree.Type == model.ServiceTreeTypePackage {
+		runcherServiceIns := GetRuncherService()
 
-	pkg := &coder.BizPackage{
-		Runner: &coder.Runner{
-			Language: gotRunner.Language,
-			Name:     gotRunner.Name,
-			Version:  gotRunner.Version,
-			User:     gotRunner.User,
-		},
-		Language: gotRunner.Language,
-		EnName:   serviceTree.Name,
-		CnName:   serviceTree.Title,
-		Desc:     serviceTree.Description,
-	}
+		runner, err := runnerproject.NewRunner(gotRunner.User, gotRunner.Name, gotRunner.Version)
+		if err != nil {
+			return err
+		}
+		runner.Language = "go"
+		pkg := &coder.BizPackage{
+			Runner:         runner,
+			AbsPackagePath: serviceTree.GetPackagePath(),
+			Language:       gotRunner.Language,
+			EnName:         serviceTree.Name,
+			CnName:         serviceTree.Title,
+			Desc:           serviceTree.Description,
+		}
 
-	pkgResp, err := runcherServiceIns.AddBizPackage2(ctx, pkg)
-	if err != nil {
-		logger.Errorf(ctx, "runcherServiceIns.AddBizPackage err:%s req:%+v  resp:%+v", err.Error(), pkg, pkgResp)
+		pkgResp, err := runcherServiceIns.AddBizPackage2(ctx, pkg)
+		if err != nil {
+			logger.Errorf(ctx, "runcherServiceIns.AddBizPackage err:%s req:%+v  resp:%+v", err.Error(), pkg, pkgResp)
+		}
 	}
 
 	//_, err = runcherServiceIns.AddBizPackage(ctx, serviceTree.RunnerID, serviceTree.Name, serviceTree.Title, "", serviceTree.ID, true)
@@ -369,6 +369,28 @@ func (s *ServiceTree) GetChildren(ctx context.Context, parentID int64) ([]model.
 
 	logger.Debug(ctx, "获取子目录列表成功", zap.Any("parent_id", parentID), zap.Any("count", len(children)))
 	return children, nil
+}
+
+func (s *ServiceTree) GetChildrenByFullPath(ctx context.Context, user string, fullPath string) ([]model.ServiceTree, error) {
+	// 如果不是根目录，先检查父级目录是否存在
+	tree, err := s.repo.GetByFullPath(ctx, user, fullPath)
+	if err != nil {
+		return nil, err
+	}
+	// 获取子目录列表
+	children, err := s.repo.GetChildren(ctx, tree.ID)
+	if err != nil {
+		return nil, fmt.Errorf("获取子目录列表失败: %w", err)
+	}
+	return children, nil
+}
+func (s *ServiceTree) GetByFullPath(ctx context.Context, user string, fullPath string) (*model.ServiceTree, error) {
+	// 如果不是根目录，先检查父级目录是否存在
+	tree, err := s.repo.GetByFullPath(ctx, user, fullPath)
+	if err != nil {
+		return nil, err
+	}
+	return tree, nil
 }
 
 // GetPath 获取服务树路径
@@ -688,10 +710,10 @@ func (s *ServiceTree) CreateWithTx(ctx context.Context, tx *gorm.DB, serviceTree
 		}
 
 		// 使用ID构建FullIDPath
-		serviceTree.FullIDPath = parent.FullIDPath + "/" + fmt.Sprintf("%d", serviceTree.ID)
+		serviceTree.FullIDPath = parent.FullIDPath + "/" + fmt.Sprintf("%d", serviceTree.ID) + "/"
 
 		// 构建FullNamePath
-		serviceTree.FullNamePath = parent.FullNamePath + "/" + serviceTree.Name
+		serviceTree.FullNamePath = parent.FullNamePath + "/" + serviceTree.Name + "/"
 
 		// 设置当前目录的级别
 		serviceTree.Level = parent.Level + 1
@@ -720,13 +742,13 @@ func (s *ServiceTree) CreateWithTx(ctx context.Context, tx *gorm.DB, serviceTree
 		}
 
 		// 使用ID构建FullIDPath
-		serviceTree.FullIDPath = fmt.Sprintf("%d", serviceTree.ID)
+		serviceTree.FullIDPath = "/" + fmt.Sprintf("%d", serviceTree.ID) + "/"
 
 		// 构建FullNamePath
-		serviceTree.FullNamePath = serviceTree.Name
+		serviceTree.FullNamePath = "/" + serviceTree.User + "/" + serviceTree.Name + "/"
 
-		// 根目录级别为0
-		serviceTree.Level = 0
+		// 根目录级别为1
+		serviceTree.Level = 1
 
 		// 更新路径字段
 		if err := s.repo.UpdateWithTx(ctx, tx, serviceTree.ID, &model.ServiceTree{

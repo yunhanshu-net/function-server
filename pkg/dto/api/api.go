@@ -1,5 +1,15 @@
 package api
 
+import "encoding/json"
+
+func (p *Params) JSONRawMessage() (json.RawMessage, error) {
+	marshal, err := json.Marshal(p)
+	if err != nil {
+		return nil, err
+	}
+	return marshal, nil
+}
+
 type Params struct {
 
 	//form,table,echarts,bi,3D .....
@@ -9,15 +19,20 @@ type Params struct {
 
 type ParamInfo struct {
 	//英文标识
-	Code string `json:"code,omitempty"`
+	Code string `json:"code"`
 	//中文名称
-	Name string `json:"name,omitempty"`
+	Name string `json:"name"`
 	//中文介绍
-	Desc string `json:"desc,omitempty"`
+	Desc string `json:"desc"`
 	//是否必填
-	Required bool `json:"required,omitempty"`
+	Required bool `json:"required"`
 
-	Widget interface{} `json:"widget"`
+	Callbacks    string      `json:"callbacks"`
+	Validates    string      `json:"validates"`
+	WidgetConfig interface{} `json:"widget_config"`
+	WidgetType   string      `json:"widget_type"`
+	ValueType    string      `json:"value_type"`
+	Example      string      `json:"example"`
 }
 
 type Info struct {
@@ -35,19 +50,6 @@ type Info struct {
 	//输出参数
 	ParamsOut *Params  `json:"params_out"`
 	UseTables []string `json:"use_tables"`
+	UseDB     []string `json:"use_db"`
 	Callbacks []string `json:"callbacks"`
-}
-
-func (i *Info) ExistCallback(callback string) bool {
-	for _, s := range i.Callbacks {
-		if callback == s {
-			return true
-		}
-	}
-	return false
-}
-
-type ApiLogs struct {
-	Version string  `json:"version"`
-	Apis    []*Info `json:"apis"`
 }

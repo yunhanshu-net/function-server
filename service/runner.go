@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"github.com/yunhanshu-net/runcher/pkg/dto/coder"
 	"time"
 
 	"github.com/yunhanshu-net/api-server/model"
@@ -16,18 +17,6 @@ import (
 // 辅助函数，将time.Time转换为model.Time
 func timeToModelTime(t time.Time) model.Time {
 	return model.Time(t)
-}
-
-// RunnerService Runner服务接口
-type RunnerService interface {
-	Create(ctx context.Context, runner *model.Runner) error
-	Get(ctx context.Context, id int64) (*model.Runner, error)
-	Update(ctx context.Context, id int64, runner *model.Runner) error
-	Delete(ctx context.Context, id int64, operator string) error
-	List(ctx context.Context, page, pageSize int, conditions map[string]interface{}) ([]model.Runner, int64, error)
-	GetByName(ctx context.Context, name string) (*model.Runner, error)
-	GetVersionHistory(ctx context.Context, id int64) ([]model.RunnerVersion, error)
-	SaveVersion(ctx context.Context, runnerID int64, version string, comment string, operator string) error
 }
 
 // Runner Runner服务实现
@@ -130,10 +119,12 @@ func (s *Runner) Create(ctx context.Context, runner *model.Runner) error {
 
 	// 创建版本
 	version := &model.RunnerVersion{
-		RunnerID:  runner.ID,
-		Version:   versionString,
-		Comment:   "初始版本",
-		CreatedBy: runner.CreatedBy}
+		RunnerID: runner.ID,
+		Version:  versionString,
+		Comment:  "初始版本",
+		Base: model.Base{
+			CreatedBy: runner.CreatedBy,
+		}}
 
 	err = s.repo.SaveVersionWithTx(ctx, tx, version)
 	if err != nil {
@@ -237,9 +228,16 @@ func (s *Runner) Delete(ctx context.Context, id int64, operator string) error {
 	}
 	if existingRunner == nil {
 		logger.Info(ctx, "Runner不存在", zap.Int64("id", id))
-		return errors.New("Runner不存在")
+		return errors.New("runner不存在")
 	}
-
+	_, err = s.runcherService.DeleteProject(ctx, &coder.DeleteProjectReq{
+		User:    existingRunner.User,
+		Runner:  existingRunner.Name,
+		Version: existingRunner.Version,
+	})
+	if err != nil {
+		return err
+	}
 	// 设置删除者
 	if err := s.repo.SetDeletedBy(ctx, id, operator); err != nil {
 		logger.Error(ctx, "设置Runner删除者失败", err, zap.Int64("id", id))
@@ -318,11 +316,9 @@ func (s *Runner) Fork(ctx context.Context, id int64, operator string) (*model.Ru
 
 	// 创建新Runner的版本记录
 	version := &model.RunnerVersion{
-		RunnerID:  newRunner.ID,
-		Version:   "1.0.0",
-		CreatedBy: operator,
-		CreatedAt: timeToModelTime(now),
-		Comment:   fmt.Sprintf("从 %s(%d) Fork", sourceRunner.Name, sourceRunner.ID),
+		RunnerID: newRunner.ID,
+		Version:  "1.0.0",
+		Comment:  fmt.Sprintf("从 %s(%d) Fork", sourceRunner.Name, sourceRunner.ID),
 	}
 
 	err = s.repo.SaveVersion(ctx, version)
@@ -410,11 +406,9 @@ func (s *Runner) SaveVersion(ctx context.Context, runnerID int64, version string
 
 	// 保存版本记录
 	versionRecord := &model.RunnerVersion{
-		RunnerID:  runnerID,
-		Version:   version,
-		CreatedBy: operator,
-		CreatedAt: timeToModelTime(time.Now()),
-		Comment:   comment,
+		RunnerID: runnerID,
+		Version:  version,
+		Comment:  comment,
 	}
 
 	if err := s.repo.SaveVersion(ctx, versionRecord); err != nil {
