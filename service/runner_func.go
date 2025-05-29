@@ -104,7 +104,7 @@ func (s *RunnerFunc) Create(ctx context.Context, runnerFunc *model.RunnerFunc) e
 				Language:       "go",
 				Code:           runnerFunc.Code,
 				Package:        packageTree.Name,
-				AbsPackagePath: packageTree.GetSubFullPath(),
+				AbsPackagePath: packageTree.GetPackagePath(),
 			},
 		},
 	}

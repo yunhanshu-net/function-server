@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"github.com/yunhanshu-net/api-server/pkg/dto/runcher"
+	"github.com/yunhanshu-net/pkg/x/jsonx"
 	"github.com/yunhanshu-net/runcher/pkg/dto/coder"
 	"sync"
 	"time"
@@ -29,7 +30,7 @@ type RuncherService interface {
 
 	// CreateProject 创建项目
 	CreateProject(ctx context.Context, runner *model.Runner) (string, error)
-
+	DeleteProject(ctx context.Context, req *coder.DeleteProjectReq) (rsp *coder.DeleteProjectResp, err error)
 	AddBizPackage2(ctx context.Context, bizPackage *coder.BizPackage) (*coder.BizPackageResp, error)
 
 	// Close 关闭服务
@@ -124,6 +125,46 @@ func (s *runcherService) RunFunction2(ctx context.Context, req *runcher.RunFunct
 	}
 
 	return resp, nil
+}
+func (s *runcherService) DeleteProject(ctx context.Context, req *coder.DeleteProjectReq) (rsp *coder.DeleteProjectResp, err error) {
+
+	if req == nil {
+		return nil, fmt.Errorf("<UNK>nil")
+	}
+
+	// 发送请求并等待响应
+	msg := nats.NewMsg(fmt.Sprintf("coder.deleteProject"))
+	msg.Data = []byte(jsonx.String(req))
+	header := nats.Header{}
+	header.Set("trace_id", getTraceID(ctx))
+	header.Set("user", req.User)
+	header.Set("runner", req.Runner)
+	header.Set("version", req.Version)
+	header.Set("method", req.Method)
+	header.Set("router", req.Router)
+	msg.Header = header
+
+	// 发送请求并等待响应
+	resp, err := s.nc.RequestMsg(msg, s.timeout)
+	if err != nil {
+		logger.Error(ctx, "执行Runner函数失败", err)
+		return nil, fmt.Errorf("执行Runner函数失败: %w", err)
+	}
+
+	// 解析响应码
+	code := resp.Header.Get("code")
+	if code != "0" {
+		errMsg := resp.Header.Get("msg")
+		logger.Error(ctx, "Runner函数执行返回错误", nil, zap.String("errMsg", errMsg))
+		return nil, fmt.Errorf("runner函数执行错误: %s", errMsg)
+	}
+	rsp = &coder.DeleteProjectResp{}
+	err = json.Unmarshal(resp.Data, &rsp)
+	if err != nil {
+		return nil, fmt.Errorf("解析响应数据失败: %w", err)
+	}
+
+	return rsp, nil
 }
 
 func (s *runcherService) AddAPI2(ctx context.Context, req *coder.AddApisReq) (rsp *coder.AddApisResp, err error) {
@@ -272,10 +313,8 @@ func getTraceID(ctx context.Context) string {
 	if ctx == nil {
 		return ""
 	}
-
 	if traceID, ok := ctx.Value("trace_id").(string); ok {
 		return traceID
 	}
-
 	return ""
 }

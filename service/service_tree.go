@@ -111,7 +111,7 @@ func (s *ServiceTree) CreateNode(ctx context.Context, serviceTree *model.Service
 		runner.Language = "go"
 		pkg := &coder.BizPackage{
 			Runner:         runner,
-			AbsPackagePath: serviceTree.GetSubFullPath(),
+			AbsPackagePath: serviceTree.GetPackagePath(),
 			Language:       gotRunner.Language,
 			EnName:         serviceTree.Name,
 			CnName:         serviceTree.Title,

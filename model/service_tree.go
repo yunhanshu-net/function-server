@@ -75,12 +75,28 @@ func (*ServiceTree) TableName() string {
 
 // GetSubFullPath a/b/c -> b/c
 func (s *ServiceTree) GetSubFullPath() string {
-	split := strings.Split(s.FullNamePath, "/")
+
+	trim := strings.Trim(s.FullNamePath, "/")
+	split := strings.Split(trim, "/")
 	if len(split) == 1 {
-		return s.FullNamePath
+		return trim
 	}
 	split = slicesx.RemoveBy(split, func(s string) bool {
 		return s == ""
 	})
 	return strings.Join(split[1:], "/")
+}
+
+// GetPackagePath /user/project/a/b/ -> a/b
+func (s *ServiceTree) GetPackagePath() string {
+
+	trim := strings.Trim(s.FullNamePath, "/")
+	split := strings.Split(trim, "/")
+	if len(split) == 1 {
+		return trim
+	}
+	split = slicesx.RemoveBy(split, func(s string) bool {
+		return s == ""
+	})
+	return strings.Join(split[2:], "/")
 }
