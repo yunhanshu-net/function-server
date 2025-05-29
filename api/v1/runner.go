@@ -184,7 +184,7 @@ func (api *RunnerAPI) Delete(c *gin.Context) {
 	logger.Debug(c, "开始处理Runner删除请求", zap.Int64("id", id))
 
 	// 设置删除者信息，实际项目中应从JWT或Session获取
-	operator := "admin"
+	operator := c.GetString("user")
 
 	if err := api.service.Delete(c, id, operator); err != nil {
 		logger.Error(c, "删除Runner失败", err, zap.Int64("id", id))

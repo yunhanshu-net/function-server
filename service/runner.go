@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"github.com/yunhanshu-net/runcher/pkg/dto/coder"
 	"time"
 
 	"github.com/yunhanshu-net/api-server/model"
@@ -227,9 +228,16 @@ func (s *Runner) Delete(ctx context.Context, id int64, operator string) error {
 	}
 	if existingRunner == nil {
 		logger.Info(ctx, "Runner不存在", zap.Int64("id", id))
-		return errors.New("Runner不存在")
+		return errors.New("runner不存在")
 	}
-
+	_, err = s.runcherService.DeleteProject(ctx, &coder.DeleteProjectReq{
+		User:    existingRunner.User,
+		Runner:  existingRunner.Name,
+		Version: existingRunner.Version,
+	})
+	if err != nil {
+		return err
+	}
 	// 设置删除者
 	if err := s.repo.SetDeletedBy(ctx, id, operator); err != nil {
 		logger.Error(ctx, "设置Runner删除者失败", err, zap.Int64("id", id))
