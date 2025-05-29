@@ -5,7 +5,7 @@ import (
 
 	"github.com/yunhanshu-net/pkg/query"
 
-	"github.com/yunhanshu-net/api-server/model"
+	"github.com/yunhanshu-net/function-server/model"
 )
 
 // ===========================================================================

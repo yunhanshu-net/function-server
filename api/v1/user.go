@@ -2,9 +2,9 @@ package v1
 
 import (
 	"github.com/gin-gonic/gin"
-	"github.com/yunhanshu-net/api-server/model"
-	"github.com/yunhanshu-net/api-server/pkg/db"
-	"github.com/yunhanshu-net/api-server/pkg/response"
+	"github.com/yunhanshu-net/function-server/model"
+	"github.com/yunhanshu-net/function-server/pkg/db"
+	"github.com/yunhanshu-net/function-server/pkg/response"
 )
 
 type UserWorkCountList struct {

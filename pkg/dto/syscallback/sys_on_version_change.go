@@ -1,6 +1,6 @@
 package syscallback
 
-import "github.com/yunhanshu-net/api-server/pkg/dto/api"
+import "github.com/yunhanshu-net/function-server/pkg/dto/api"
 
 type SysOnVersionChangeReq struct {
 	OldVersion string `json:"old_version"`

@@ -2,11 +2,11 @@ package router
 
 import (
 	"github.com/gin-gonic/gin"
-	"github.com/yunhanshu-net/api-server/api/v1"
-	"github.com/yunhanshu-net/api-server/middleware"
-	"github.com/yunhanshu-net/api-server/pkg/config"
-	"github.com/yunhanshu-net/api-server/pkg/db"
-	pkgmiddleware "github.com/yunhanshu-net/api-server/pkg/middleware"
+	"github.com/yunhanshu-net/function-server/api/v1"
+	"github.com/yunhanshu-net/function-server/middleware"
+	"github.com/yunhanshu-net/function-server/pkg/config"
+	"github.com/yunhanshu-net/function-server/pkg/db"
+	pkgmiddleware "github.com/yunhanshu-net/function-server/pkg/middleware"
 )
 
 // Init 初始化路由

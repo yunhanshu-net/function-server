@@ -1,4 +1,4 @@
-module github.com/yunhanshu-net/api-server
+module github.com/yunhanshu-net/function-server
 
 go 1.23.0
 

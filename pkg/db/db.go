@@ -2,10 +2,10 @@ package db
 
 import (
 	"fmt"
-	"github.com/yunhanshu-net/api-server/model"
+	"github.com/yunhanshu-net/function-server/model"
 	"time"
 
-	"github.com/yunhanshu-net/api-server/pkg/config"
+	"github.com/yunhanshu-net/function-server/pkg/config"
 	"gorm.io/driver/mysql"
 	"gorm.io/gorm"
 	"gorm.io/gorm/logger"
