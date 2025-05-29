@@ -3,32 +3,13 @@ package repo
 import (
 	"context"
 	"errors"
+	"strings"
 
 	"github.com/yunhanshu-net/api-server/model"
 	"github.com/yunhanshu-net/api-server/pkg/logger"
 	"go.uber.org/zap"
 	"gorm.io/gorm"
 )
-
-// RunnerFuncRepository 函数仓库接口
-type RunnerFuncRepository interface {
-	Create(ctx context.Context, runnerFunc *model.RunnerFunc) error
-	Get(ctx context.Context, id int64) (*model.RunnerFunc, error)
-	Update(ctx context.Context, id int64, updateData *model.RunnerFunc) error
-	Delete(ctx context.Context, id int64) error
-	SetDeletedBy(ctx context.Context, id int64, deletedBy string) error
-	List(ctx context.Context, page, pageSize int, conditions map[string]interface{}) ([]model.RunnerFunc, int64, error)
-	GetByRunner(ctx context.Context, runnerID int64) ([]model.RunnerFunc, error)
-	GetByName(ctx context.Context, runnerID int64, name string) (*model.RunnerFunc, error)
-	CheckRunnerExists(ctx context.Context, runnerID int64) (bool, error)
-	CheckServiceTreeExists(ctx context.Context, treeID int64) (bool, error)
-	Fork(ctx context.Context, sourceID int64, targetTreeID int64, targetRunnerID int64, newName string, operator string) (*model.RunnerFunc, error)
-	GetByTree(ctx context.Context, treeID int64) ([]model.RunnerFunc, error)
-	BatchCreate(ctx context.Context, runnerFuncs []model.RunnerFunc) error
-	UpdateStatus(ctx context.Context, id int64, status int) error
-	SaveVersion(ctx context.Context, version *model.FuncVersion) error
-	GetVersions(ctx context.Context, funcID int64) ([]model.FuncVersion, error)
-}
 
 // RunnerFuncRepo 函数仓库实现
 type RunnerFuncRepo struct {
@@ -46,8 +27,33 @@ func (r *RunnerFuncRepo) Create(ctx context.Context, runnerFunc *model.RunnerFun
 	return r.db.WithContext(ctx).Create(runnerFunc).Error
 }
 
+// GetByFullPath 创建函数
+func (r *RunnerFuncRepo) GetByFullPath(ctx context.Context, method string, fullPath string) (runnerFunc *model.RunnerFunc, err error) {
+	err = r.db.WithContext(ctx).Where("method = ? AND path = ?", strings.ToUpper(method), strings.TrimPrefix(fullPath, "/")).First(&runnerFunc).Error
+	if err != nil {
+		return nil, err
+	}
+	return runnerFunc, nil
+}
+
 // Get 获取函数详情
 func (r *RunnerFuncRepo) Get(ctx context.Context, id int64) (*model.RunnerFunc, error) {
+	logger.Debug(ctx, "开始获取函数", zap.Int64("id", id))
+	var runnerFunc model.RunnerFunc
+	err := r.db.WithContext(ctx).First(&runnerFunc, id).Error
+	if err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			logger.Info(ctx, "函数不存在", zap.Int64("id", id))
+			return nil, nil
+		}
+		logger.Error(ctx, "获取函数失败", err, zap.Int64("id", id))
+		return nil, err
+	}
+	return &runnerFunc, nil
+}
+
+// GetByTreeId 获取函数详情
+func (r *RunnerFuncRepo) GetByTreeId(ctx context.Context, id int64) (*model.RunnerFunc, error) {
 	logger.Debug(ctx, "开始获取函数", zap.Int64("id", id))
 	var runnerFunc model.RunnerFunc
 	err := r.db.WithContext(ctx).First(&runnerFunc, id).Error
@@ -176,11 +182,9 @@ func (r *RunnerFuncRepo) Fork(ctx context.Context, sourceID int64, targetTreeID 
 
 	// 创建版本记录
 	version := &model.FuncVersion{
-		FuncID:    newFunc.ID,
-		Version:   "1.0.0",
-		CreatedBy: operator,
-		CreatedAt: newFunc.CreatedAt,
-		Comment:   "从 " + sourceFunc.Name + " Fork",
+		FuncID:  newFunc.ID,
+		Version: "1.0.0",
+		Comment: "从 " + sourceFunc.Name + " Fork",
 	}
 
 	// 保存版本记录
@@ -246,4 +250,105 @@ func (r *RunnerFuncRepo) GetVersions(ctx context.Context, funcID int64) ([]model
 		return nil, err
 	}
 	return versions, nil
+}
+
+// GetUserRecentFuncRecords 获取用户最近执行过的函数记录（去重）
+func (r *RunnerFuncRepo) GetUserRecentFuncRecords(ctx context.Context, user string, page, pageSize int) ([]model.FuncRunRecord, int64, error) {
+	logger.Debug(ctx, "开始获取用户最近执行函数记录", zap.String("user", user), zap.Int("page", page), zap.Int("pageSize", pageSize))
+
+	// 构建子查询，获取每个函数的最新执行记录ID
+	subQuery := r.db.WithContext(ctx).
+		Model(&model.FuncRunRecord{}).
+		Select("MAX(id) as max_id").
+		Joins("JOIN runner_func rf ON func_run_record.func_id = rf.id").
+		Where("rf.user = ?", user).
+		Group("func_run_record.func_id")
+
+	// 获取总数
+	var total int64
+	countQuery := r.db.WithContext(ctx).
+		Model(&model.FuncRunRecord{}).
+		Joins("JOIN runner_func rf ON func_run_record.func_id = rf.id").
+		Where("rf.user = ? AND func_run_record.id IN (?)", user, subQuery)
+
+	if err := countQuery.Count(&total).Error; err != nil {
+		logger.Error(ctx, "获取用户最近执行函数记录总数失败", err, zap.String("user", user))
+		return nil, 0, err
+	}
+
+	// 获取分页数据
+	var records []model.FuncRunRecord
+	offset := (page - 1) * pageSize
+
+	query := r.db.WithContext(ctx).
+		Model(&model.FuncRunRecord{}).
+		Joins("JOIN runner_func rf ON func_run_record.func_id = rf.id").
+		Where("rf.user = ? AND func_run_record.id IN (?)", user, subQuery).
+		Order("func_run_record.end_ts DESC").
+		Offset(offset).
+		Limit(pageSize)
+
+	if err := query.Find(&records).Error; err != nil {
+		logger.Error(ctx, "获取用户最近执行函数记录失败", err, zap.String("user", user))
+		return nil, 0, err
+	}
+
+	logger.Info(ctx, "获取用户最近执行函数记录成功", zap.String("user", user), zap.Int("count", len(records)), zap.Int64("total", total))
+	return records, total, nil
+}
+
+// GetFuncRunRecordWithDetails 获取函数执行记录及其关联的详细信息
+func (r *RunnerFuncRepo) GetFuncRunRecordWithDetails(ctx context.Context, recordID int64) (*model.FuncRunRecord, *model.RunnerFunc, *model.Runner, *model.ServiceTree, error) {
+	logger.Debug(ctx, "开始获取函数执行记录详细信息", zap.Int64("record_id", recordID))
+
+	var record model.FuncRunRecord
+	if err := r.db.WithContext(ctx).First(&record, recordID).Error; err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil, nil, nil, nil, nil
+		}
+		logger.Error(ctx, "获取函数执行记录失败", err, zap.Int64("record_id", recordID))
+		return nil, nil, nil, nil, err
+	}
+
+	// 获取函数信息
+	var runnerFunc model.RunnerFunc
+	if err := r.db.WithContext(ctx).First(&runnerFunc, record.FuncId).Error; err != nil {
+		logger.Error(ctx, "获取函数信息失败", err, zap.Int64("func_id", record.FuncId))
+		return &record, nil, nil, nil, err
+	}
+
+	// 获取Runner信息
+	var runner model.Runner
+	if err := r.db.WithContext(ctx).First(&runner, runnerFunc.RunnerID).Error; err != nil {
+		logger.Error(ctx, "获取Runner信息失败", err, zap.Int64("runner_id", runnerFunc.RunnerID))
+		return &record, &runnerFunc, nil, nil, err
+	}
+
+	// 获取ServiceTree信息
+	var serviceTree model.ServiceTree
+	if err := r.db.WithContext(ctx).First(&serviceTree, runnerFunc.TreeID).Error; err != nil {
+		logger.Error(ctx, "获取ServiceTree信息失败", err, zap.Int64("tree_id", runnerFunc.TreeID))
+		return &record, &runnerFunc, &runner, nil, err
+	}
+
+	return &record, &runnerFunc, &runner, &serviceTree, nil
+}
+
+// GetUserFuncRunCount 获取用户函数执行次数统计
+func (r *RunnerFuncRepo) GetUserFuncRunCount(ctx context.Context, user string, funcID int64) (int64, error) {
+	logger.Debug(ctx, "开始获取用户函数执行次数", zap.String("user", user), zap.Int64("func_id", funcID))
+
+	var count int64
+	err := r.db.WithContext(ctx).
+		Model(&model.FuncRunRecord{}).
+		Joins("JOIN runner_func rf ON func_run_record.func_id = rf.id").
+		Where("rf.user = ? AND func_run_record.func_id = ?", user, funcID).
+		Count(&count).Error
+
+	if err != nil {
+		logger.Error(ctx, "获取用户函数执行次数失败", err, zap.String("user", user), zap.Int64("func_id", funcID))
+		return 0, err
+	}
+
+	return count, nil
 }

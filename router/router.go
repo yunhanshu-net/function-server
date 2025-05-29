@@ -19,13 +19,21 @@ func Init() *gin.Engine {
 
 	// 使用中间件
 	r.Use(gin.Recovery())
-	r.Use(pkgmiddleware.Logger())
+	//r.Use(pkgmiddleware.Logger())
 	r.Use(pkgmiddleware.Cors())
 	r.Use(middleware.WithTraceID()) // 添加跟踪ID中间件
 
 	// API版本v1
 	apiV1 := r.Group("/api/v1")
 	apiV1.Use(middleware.WithUserInfo())
+
+	functionV1 := r.Group("/function")
+	functionV1.Use(middleware.WithUserInfo())
+	{
+		functionApi := v1.NewFunctions(db.GetDB())
+		functionV1.Any("/run/:user/:runner/*router", functionApi.Run)
+		functionV1.POST("/callback/:user/:runner/*router", functionApi.Callback)
+	}
 	{
 		// Runner 相关路由
 		runnerAPI := v1.NewRunnerAPI(db.GetDB())
@@ -49,10 +57,16 @@ func Init() *gin.Engine {
 			serviceTree.GET("", serviceTreeAPI.List)    // 获取目录列表
 			serviceTree.GET("/:id", serviceTreeAPI.Get) // 获取目录详情
 			//serviceTree.GET("/children/:id", serviceTreeAPI.Children)           // 获取目录详情
-			serviceTree.PUT("/:id", serviceTreeAPI.Update)                      // 更新目录
-			serviceTree.DELETE("/:id", serviceTreeAPI.Delete)                   // 删除目录
-			serviceTree.POST("/:id/fork", serviceTreeAPI.Fork)                  // Fork目录
-			serviceTree.GET("/children/:parent_id", serviceTreeAPI.GetChildren) // 获取子目录列表
+			serviceTree.PUT("/:id", serviceTreeAPI.Update)                                // 更新目录
+			serviceTree.DELETE("/:id", serviceTreeAPI.Delete)                             // 删除目录
+			serviceTree.POST("/:id/fork", serviceTreeAPI.Fork)                            // Fork目录
+			serviceTree.GET("/children/:parent_id", serviceTreeAPI.GetChildren)           // 获取子目录列表
+			serviceTree.GET("/get_children/*full_path", serviceTreeAPI.GetChildrenByPath) // 获取子目录列表
+			serviceTree.GET("/full_path", serviceTreeAPI.GetByFullPath)                   // 获取子目录列表
+			serviceTree.GET("/tree/*full_name_path", serviceTreeAPI.Tree)                 // 获取子目录列表
+			serviceTree.GET("/search", serviceTreeAPI.Search)                             // 获取子目录列表
+			serviceTree.GET("/user_count_list", serviceTreeAPI.UserWorkCountList)         // 获取子目录列表
+
 		}
 
 		// ServiceTreePath 相关路由
@@ -67,13 +81,20 @@ func Init() *gin.Engine {
 		runnerFuncAPI := v1.NewRunnerFuncAPI(db.GetDB())
 		runnerFunc := apiV1.Group("/runner-func")
 		{
-			runnerFunc.POST("", runnerFuncAPI.Create)                       // 创建函数
-			runnerFunc.GET("", runnerFuncAPI.List)                          // 获取函数列表
-			runnerFunc.GET("/:id", runnerFuncAPI.Get)                       // 获取函数详情
+			runnerFunc.POST("", runnerFuncAPI.Create)                            // 创建函数
+			runnerFunc.GET("", runnerFuncAPI.List)                               // 获取函数列表
+			runnerFunc.GET("/:id", runnerFuncAPI.Get)                            // 获取函数详情
+			runnerFunc.GET("/:id/versions", runnerFuncAPI.Versions)              // 获取函数详情
+			runnerFunc.GET("/tree/:tree_id", runnerFuncAPI.GetByTreeId)          // 获取函数详情
+			runnerFunc.GET("/full-path/*full_path", runnerFuncAPI.GetByFullPath) // 获取函数详情
+
 			runnerFunc.PUT("/:id", runnerFuncAPI.Update)                    // 更新函数
 			runnerFunc.DELETE("/:id", runnerFuncAPI.Delete)                 // 删除函数
 			runnerFunc.POST("/:id/fork", runnerFuncAPI.Fork)                // Fork函数
 			runnerFunc.GET("/runner/:runner_id", runnerFuncAPI.GetByRunner) // 获取Runner下的函数列表
+
+			runnerFunc.GET("/record/:func_id", runnerFuncAPI.GetFuncRecord)
+			runnerFunc.GET("/recent-records", runnerFuncAPI.GetUserRecentFuncRecords) // 获取用户最近执行函数记录（去重）
 		}
 	}
 
