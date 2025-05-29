@@ -1,12 +1,13 @@
+# 系统文件
+.DS_Store
+.idea/
+.vscode/
+
+# 临时文件
 *.log
-/logs
-*.yaml
-.idea
-*.sum
-*.key
-*.json
-test
-logs/*
-key.json
-key
-.request/
+*.tmp
+
+# 构建文件
+*.exe
+dist/
+build/
