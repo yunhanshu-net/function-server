@@ -6,7 +6,7 @@ import (
 	"go.uber.org/zap"
 
 	"github.com/yunhanshu-net/function-server/model"
-	"github.com/yunhanshu-net/function-server/pkg/logger"
+	"github.com/yunhanshu-net/pkg/logger"
 	"gorm.io/gorm"
 )
 

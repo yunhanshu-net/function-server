@@ -5,8 +5,8 @@ import (
 	"fmt"
 
 	"github.com/gin-gonic/gin"
-	"github.com/yunhanshu-net/function-server/pkg/logger"
 	"github.com/yunhanshu-net/pkg/constants"
+	"github.com/yunhanshu-net/pkg/logger"
 )
 
 // GetTraceID 从gin上下文中获取跟踪ID

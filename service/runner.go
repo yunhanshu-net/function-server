@@ -8,8 +8,8 @@ import (
 	"time"
 
 	"github.com/yunhanshu-net/function-server/model"
-	"github.com/yunhanshu-net/function-server/pkg/logger"
 	"github.com/yunhanshu-net/function-server/repo"
+	"github.com/yunhanshu-net/pkg/logger"
 	"go.uber.org/zap"
 	"gorm.io/gorm"
 )
