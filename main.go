@@ -13,9 +13,9 @@ import (
 
 	"github.com/yunhanshu-net/function-server/pkg/config"
 	"github.com/yunhanshu-net/function-server/pkg/db"
-	"github.com/yunhanshu-net/function-server/pkg/logger"
 	"github.com/yunhanshu-net/function-server/router"
 	"github.com/yunhanshu-net/function-server/service"
+	"github.com/yunhanshu-net/pkg/logger"
 )
 
 func main() {
@@ -26,19 +26,29 @@ func main() {
 	}
 
 	// 初始化日志
-	if err := logger.Init(config.Get().LogConfig); err != nil {
+	cfg := config.Get()
+	logCfg := logger.Config{
+		Level:      cfg.LogConfig.Level,
+		Filename:   cfg.LogConfig.Filename,
+		MaxSize:    cfg.LogConfig.MaxSize,
+		MaxBackups: cfg.LogConfig.MaxBackups,
+		MaxAge:     cfg.LogConfig.MaxAge,
+		Compress:   cfg.LogConfig.Compress,
+		IsDev:      cfg.ServerConfig.Mode == "debug",
+	}
+	if err := logger.Init(logCfg); err != nil {
 		log.Fatalf("初始化日志失败: %v", err)
 	}
 
 	// 初始化数据库连接
-	if err := db.Init(config.Get().DBConfig); err != nil {
+	if err := db.Init(cfg.DBConfig); err != nil {
 		logger.Fatal(ctx, "初始化数据库连接失败", err)
 	}
 
 	// 初始化RuncherService
 	runcherOptions := service.RuncherOptions{
-		NatsURL: config.Get().RuncherConfig.NatsURL,
-		Timeout: time.Duration(config.Get().RuncherConfig.Timeout) * time.Second,
+		NatsURL: cfg.RuncherConfig.NatsURL,
+		Timeout: time.Duration(cfg.RuncherConfig.Timeout) * time.Second,
 	}
 
 	var err error
@@ -59,7 +69,7 @@ func main() {
 	r := router.Init()
 
 	// 启动服务器
-	addr := fmt.Sprintf(":%d", config.Get().ServerConfig.Port)
+	addr := fmt.Sprintf(":%d", cfg.ServerConfig.Port)
 	server := &http.Server{
 		Addr:    addr,
 		Handler: r,
@@ -73,17 +83,19 @@ func main() {
 		}
 	}()
 
-	// 等待中断信号以优雅地关闭服务器
+	// 等待中断信号
 	quit := make(chan os.Signal, 1)
 	signal.Notify(quit, syscall.SIGINT, syscall.SIGTERM)
 	<-quit
-	logger.Info(ctx, "关闭服务器...")
 
+	// 优雅关闭
+	logger.Info(ctx, "正在关闭服务器...")
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
+
 	if err := server.Shutdown(ctx); err != nil {
-		logger.Fatal(ctx, "服务器强制关闭", err)
+		logger.Fatal(ctx, "服务器关闭出错", err)
 	}
 
-	logger.Info(ctx, "服务器优雅退出")
+	logger.Info(ctx, "服务器已关闭")
 }
