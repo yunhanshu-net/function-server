@@ -95,6 +95,7 @@ func Init() *gin.Engine {
 
 			runnerFunc.GET("/record/:func_id", runnerFuncAPI.GetFuncRecord)
 			runnerFunc.GET("/recent-records", runnerFuncAPI.GetUserRecentFuncRecords) // 获取用户最近执行函数记录（去重）
+			runnerFunc.POST("/gen", runnerFuncAPI.FunctionGen)                        // 获取用户最近执行函数记录（去重）
 		}
 	}
 

@@ -338,10 +338,7 @@ func (api *RunnerAPI) GetByName(c *gin.Context) {
 	logger.Debug(c, "开始处理Runner详情请求", zap.String("user", user), zap.String("name", name))
 
 	// 查询条件
-	conditions := map[string]interface{}{
-		"user": user,
-		"name": name,
-	}
+	conditions := map[string]interface{}{"user": user, "name": name}
 
 	// 获取数据
 	runners, total, err := api.service.List(c, 1, 1, conditions)
