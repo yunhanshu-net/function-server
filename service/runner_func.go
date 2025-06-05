@@ -119,6 +119,12 @@ func (s *RunnerFunc) Create(ctx context.Context, runnerFunc *model.RunnerFunc) e
 	for _, addAPI := range addAPIs {
 
 		fc := *runnerFunc
+
+		fc.Async = addAPI.Async
+		fc.Timeout = addAPI.Timeout
+		fc.Description = addAPI.ApiDesc
+		fc.RenderType = addAPI.RenderType
+		fc.FunctionType = addAPI.FunctionType
 		fc.Name = addAPI.EnglishName
 		fc.Title = addAPI.ChineseName
 		fc.Tags = strings.Join(addAPI.Tags, ",")
@@ -129,6 +135,10 @@ func (s *RunnerFunc) Create(ctx context.Context, runnerFunc *model.RunnerFunc) e
 		fc.Method = addAPI.Method
 		fc.Callbacks = strings.Join(addAPI.Callbacks, ",")
 		fc.UseTables = strings.Join(addAPI.UseTables, ",")
+		fc.CreateTables = strings.Join(addAPI.CreateTables, ",")
+		if addAPI.OperateTables != nil {
+			fc.OperateTables = json.RawMessage(jsonx.String(addAPI.OperateTables))
+		}
 		// 设置默认值
 		if fc.User == "" {
 			fc.User = "admin"
@@ -139,6 +149,7 @@ func (s *RunnerFunc) Create(ctx context.Context, runnerFunc *model.RunnerFunc) e
 			logger.Error(ctx, "创建函数失败", err)
 			return fmt.Errorf("创建函数失败: %w", err)
 		}
+		runnerFunc.ID = fc.ID
 		tree := &model.ServiceTree{
 			Type:     model.ServiceTreeTypeFunction,
 			ParentID: fc.TreeID,

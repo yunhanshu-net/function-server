@@ -1,6 +1,7 @@
 package v1
 
 import (
+	"encoding/json"
 	"fmt"
 	"strconv"
 	"strings"
@@ -137,9 +138,54 @@ func (api *RunnerFuncAPI) Get(c *gin.Context) {
 		return
 	}
 
-	// 直接创建响应DTO
+	// 添加调试日志
+	logger.Infof(c, "查询到的RunnerFunc详情: ID=%d, Name=%s, Title=%s, User=%s, Description=%s",
+		runnerFunc.ID, runnerFunc.Name, runnerFunc.Title, runnerFunc.User, runnerFunc.Description)
 
-	logger.Info(c, "获取RunnerFunc详情成功", zap.Int64("id", id))
+	// 测试JSON序列化
+	logger.Infof(c, "准备检查各个JSON字段...")
+
+	// 检查Request字段
+	if runnerFunc.Request != nil {
+		if json.Valid(runnerFunc.Request) {
+			logger.Infof(c, "Request字段有效，长度: %d", len(runnerFunc.Request))
+		} else {
+			logger.Errorf(c, "Request字段无效: %s", string(runnerFunc.Request))
+		}
+	} else {
+		logger.Infof(c, "Request字段为空")
+	}
+
+	// 检查Response字段
+	if runnerFunc.Response != nil {
+		if json.Valid(runnerFunc.Response) {
+			logger.Infof(c, "Response字段有效，长度: %d", len(runnerFunc.Response))
+		} else {
+			logger.Errorf(c, "Response字段无效: %s", string(runnerFunc.Response))
+		}
+	} else {
+		logger.Infof(c, "Response字段为空")
+	}
+
+	// 检查OperateTables字段
+	if runnerFunc.OperateTables != nil {
+		if json.Valid(runnerFunc.OperateTables) {
+			logger.Infof(c, "OperateTables字段有效，长度: %d", len(runnerFunc.OperateTables))
+		} else {
+			logger.Errorf(c, "OperateTables字段无效: %s", string(runnerFunc.OperateTables))
+		}
+	} else {
+		logger.Infof(c, "OperateTables字段为空")
+	}
+
+	jsonData, err := json.Marshal(runnerFunc)
+	if err != nil {
+		logger.Errorf(c, "JSON序列化失败: %v", err)
+		response.ServerError(c, "数据序列化失败")
+		return
+	}
+	logger.Infof(c, "JSON序列化成功，长度: %d", len(jsonData))
+
 	response.Success(c, runnerFunc)
 }
 func (api *RunnerFuncAPI) Versions(c *gin.Context) {
