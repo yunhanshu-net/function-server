@@ -10,8 +10,8 @@ type FunctionGen struct {
 	Score      int64  `json:"score"`                             //得分
 	Level      int64  `json:"level"`                             //函数复杂度：1-100
 	Quality    string `json:"quality"`                           //质量，优，良，中，差
-	Enable     int    `json:"enable"`                            //是否启用
-	Status     string `json:"status"`                            //状态，未审核，已审核，
+	Enable     int    `json:"enable"`                            //是否启用，-1，1
+	Status     string `json:"status"`                            //状态，生成中，待审核，已审核
 	Classify   string `json:"classify"`                          //分类
 	Tags       string `json:"tags"`                              // 标签
 	RenderType string `json:"render_type"`                       // 功能渲染类型
@@ -20,6 +20,7 @@ type FunctionGen struct {
 	FunctionID int64  `json:"function_id"`                       // 函数ID
 	TreeID     int64  `json:"tree_id"`                           // 关联的树ID
 	Length     int    `json:"length"`                            // 字符数，根据字符数来判断是否是复杂函数
+	RunnerID   int64  `json:"runner_id"`                         //所属工作空间
 }
 
 func (f *FunctionGen) TableName() string {

@@ -27,7 +27,7 @@ type RuncherService interface {
 	RunFunction2(ctx context.Context, req *runcher.RunFunctionReq) (*nats.Msg, error)
 
 	AddAPI2(ctx context.Context, req *coder.AddApisReq) (rsp *coder.AddApisResp, err error)
-
+	DeleteAPIs(ctx context.Context, req *coder.DeleteAPIsReq) (rsp *coder.DeleteAPIsResp, err error)
 	// CreateProject 创建项目
 	CreateProject(ctx context.Context, runner *model.Runner) (string, error)
 	DeleteProject(ctx context.Context, req *coder.DeleteProjectReq) (rsp *coder.DeleteProjectResp, err error)
@@ -199,6 +199,46 @@ func (s *runcherService) AddAPI2(ctx context.Context, req *coder.AddApisReq) (rs
 
 	// 解析响应数据
 	var result coder.AddApisResp
+	if err := json.Unmarshal(resp.Data, &result); err != nil {
+		logger.Error(ctx, "解析响应数据失败", err)
+		return nil, fmt.Errorf("解析响应数据失败: %w", err)
+	}
+
+	return &result, nil
+}
+
+func (s *runcherService) DeleteAPIs(ctx context.Context, req *coder.DeleteAPIsReq) (rsp *coder.DeleteAPIsResp, err error) {
+
+	// 序列化请求数据
+	reqBytes, err := json.Marshal(req)
+	if err != nil {
+		logger.Error(ctx, "序列化请求数据失败", err)
+		return nil, fmt.Errorf("序列化请求数据失败: %w", err)
+	}
+
+	// 创建请求消息
+	msg := nats.NewMsg("coder.deleteApis")
+	msg.Data = reqBytes
+	msg.Header = nats.Header{}
+	msg.Header.Set("trace_id", getTraceID(ctx))
+
+	// 发送请求并等待响应
+	resp, err := s.nc.RequestMsg(msg, s.timeout)
+	if err != nil {
+		logger.Error(ctx, "删除api失败", err)
+		return nil, fmt.Errorf("添加API失败: %w", err)
+	}
+
+	// 解析响应码
+	code := resp.Header.Get("code")
+	if code != "0" {
+		errMsg := resp.Header.Get("msg")
+		logger.Error(ctx, "删除api失败", nil, zap.String("errMsg", errMsg))
+		return nil, fmt.Errorf("添加API错误: %s", errMsg)
+	}
+
+	// 解析响应数据
+	var result coder.DeleteAPIsResp
 	if err := json.Unmarshal(resp.Data, &result); err != nil {
 		logger.Error(ctx, "解析响应数据失败", err)
 		return nil, fmt.Errorf("解析响应数据失败: %w", err)

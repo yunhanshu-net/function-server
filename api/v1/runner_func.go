@@ -398,6 +398,33 @@ func (api *RunnerFuncAPI) Delete(c *gin.Context) {
 	response.Success(c, resp)
 }
 
+// DeleteByIds 删除函数
+func (api *RunnerFuncAPI) DeleteByIds(c *gin.Context) {
+	// 使用DeleteRunnerFuncReq DTO
+	var req dto.DeleteRunnerFuncByIds
+	// 设置删除者信息，实际项目中应从JWT或Session获取
+	operator := "admin"
+	err := c.ShouldBindJSON(&req)
+	if err != nil {
+		response.ParamError(c, err.Error())
+		return
+	}
+	// 调用服务层删除函数
+	if err := api.service.DeleteByIds(c, req.Ids, operator); err != nil {
+		logger.Errorf(c, "删除RunnerFunc失败err:%s %+v", err, req)
+		response.ServerError(c, "删除函数失败: "+err.Error())
+		return
+	}
+
+	// 创建响应DTO
+	resp := dto.DeleteRunnerFuncResp{
+		Success: true,
+	}
+
+	logger.Infof(c, "删除RunnerFunc成功 ids:%v", req.Ids)
+	response.Success(c, resp)
+}
+
 // Fork 复制函数
 func (api *RunnerFuncAPI) Fork(c *gin.Context) {
 	// 使用ForkRunnerFuncReq DTO

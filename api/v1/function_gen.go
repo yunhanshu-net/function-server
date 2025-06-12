@@ -49,3 +49,35 @@ func (api *RunnerFuncAPI) FunctionGen(c *gin.Context) {
 	}
 	response.Success(c, gen)
 }
+func (api *RunnerFuncAPI) GeneratingList(c *gin.Context) {
+	var req dto.FunctionGenListReq
+	if err := c.ShouldBindQuery(&req); err != nil {
+		response.ParamError(c, err.Error())
+		return
+	}
+	var list []model.FunctionGen
+	table, err := query.AutoPaginateTable(c,
+		db.GetDB().
+			Where("runner_id = ?", req.RunnerID),
+		&model.FunctionGen{}, &list, &req.PageInfoReq)
+	if err != nil {
+		response.ServerError(c, err.Error())
+		return
+	}
+	response.Success(c, table)
+}
+
+func (api *RunnerFuncAPI) GeneratingCount(c *gin.Context) {
+	var req dto.GeneratingCount
+	if err := c.ShouldBindQuery(&req); err != nil {
+		response.ParamError(c, err.Error())
+		return
+	}
+	var count int64
+	db.GetDB().
+		Model(&model.FunctionGen{}).
+		Where("runner_id = ?", req.RunnerID).
+		Count(&count)
+
+	response.Success(c, map[string]int64{"count": count})
+}
