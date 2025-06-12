@@ -175,6 +175,10 @@ type DeleteRunnerFuncReq struct {
 	ID int64 `json:"-"` // 函数 ID，从路径参数获取
 }
 
+type DeleteRunnerFuncByIds struct {
+	Ids []int64 `json:"ids"`
+}
+
 // DeleteRunnerFuncResp 删除函数响应
 type DeleteRunnerFuncResp struct {
 	Success bool `json:"success"` // 是否成功

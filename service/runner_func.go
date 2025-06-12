@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"github.com/pkg/errors"
 	"github.com/yunhanshu-net/function-runtime/pkg/dto/coder"
+	"github.com/yunhanshu-net/function-server/pkg/db"
 	"github.com/yunhanshu-net/pkg/dto/runnerproject"
 	"github.com/yunhanshu-net/pkg/x/jsonx"
 	"strings"
@@ -286,14 +287,50 @@ func (s *RunnerFunc) Delete(ctx context.Context, id int64, operator string) erro
 	logger.Debug(ctx, "开始删除函数", zap.Int64("id", id))
 
 	// 检查函数是否存在
-	existingFunc, err := s.runnerFuncRepo.Get(ctx, id)
+	runnerFunc, err := s.runnerFuncRepo.Get(ctx, id)
 	if err != nil {
 		logger.Error(ctx, "获取函数失败", err, zap.Int64("id", id))
 		return fmt.Errorf("获取函数失败: %w", err)
 	}
-	if existingFunc == nil {
+	if runnerFunc == nil {
 		return errors.New("函数不存在")
 	}
+	gotRunner, err := s.runnerRepo.Get(ctx, runnerFunc.RunnerID)
+	if err != nil {
+		return err
+	}
+	packageTree, err := s.serviceTreeRepo.Get(ctx, runnerFunc.TreeID)
+	if err != nil {
+		logger.Error(ctx, "检查服务树存在性失败", err, zap.Int64("tree_id", runnerFunc.TreeID))
+		return fmt.Errorf("检查服务树存在性失败: %w", err)
+	}
+
+	runner, err := runnerproject.NewRunner(gotRunner.User, gotRunner.Name, gotRunner.Version)
+	if err != nil {
+		return err
+	}
+	runner.Language = "go"
+	service := GetRuncherService()
+	r := &coder.DeleteAPIsReq{
+		Runner: runner,
+		Msg:    runnerFunc.Description,
+		CodeApis: []*coder.CodeApi{
+			{
+				EnName:         runnerFunc.Name,
+				CnName:         runnerFunc.Title,
+				Desc:           runnerFunc.Description,
+				Language:       "go",
+				Code:           runnerFunc.Code,
+				Package:        packageTree.Name,
+				AbsPackagePath: packageTree.GetPackagePath(),
+			},
+		},
+	}
+	_, err = service.DeleteAPIs(ctx, r)
+	if err != nil {
+		return err
+	}
+	//删除对应tree和对应函数
 
 	// 设置删除者
 	if err := s.runnerFuncRepo.SetDeletedBy(ctx, id, operator); err != nil {
@@ -308,6 +345,130 @@ func (s *RunnerFunc) Delete(ctx context.Context, id int64, operator string) erro
 	}
 
 	logger.Info(ctx, "删除函数成功", zap.Int64("id", id))
+	return nil
+}
+
+// DeleteByIds 删除函数
+func (s *RunnerFunc) DeleteByIds(ctx context.Context, ids []int64, operator string) error {
+
+	if ids == nil || len(ids) == 0 {
+		return fmt.Errorf("ids is empty")
+	}
+	service := GetRuncherService()
+
+	var gotRunner *model.Runner
+	del := &coder.DeleteAPIsReq{}
+	var rp *runnerproject.Runner
+	var delPaths []string
+	for _, id := range ids {
+		runnerFunc, err := s.runnerFuncRepo.Get(ctx, id)
+		if err != nil {
+			logger.Error(ctx, "获取函数失败", err, zap.Int64("id", id))
+			return fmt.Errorf("获取函数失败: %w", err)
+		}
+		if runnerFunc == nil {
+			return errors.New("函数不存在")
+		}
+		if gotRunner == nil {
+			gotRunner, err = s.runnerRepo.Get(ctx, runnerFunc.RunnerID)
+			if err != nil {
+				return err
+			}
+		}
+
+		packageTree, err := s.serviceTreeRepo.Get(ctx, runnerFunc.TreeID)
+		if err != nil {
+			logger.Error(ctx, "检查服务树存在性失败", err, zap.Int64("tree_id", runnerFunc.TreeID))
+			return fmt.Errorf("检查服务树存在性失败: %w", err)
+		}
+
+		if rp == nil {
+			rp, err = runnerproject.NewRunner(gotRunner.User, gotRunner.Name, gotRunner.Version)
+			if err != nil {
+				return err
+			}
+			rp.Language = "go"
+			del.Runner = rp
+		}
+		delPaths = append(delPaths, packageTree.FullNamePath+runnerFunc.Name+"/")
+		del.CodeApis = append(del.CodeApis, &coder.CodeApi{
+			EnName:         runnerFunc.Name,
+			CnName:         runnerFunc.Title,
+			Desc:           runnerFunc.Description,
+			Language:       "go",
+			Code:           runnerFunc.Code,
+			Package:        packageTree.Name,
+			AbsPackagePath: packageTree.GetPackagePath(),
+		})
+
+	}
+	//// 检查函数是否存在
+	//if gotRunner == nil {
+	//	return errors.New("runner is nil")
+	//}
+	//runner, err := runnerproject.NewRunner(gotRunner.User, gotRunner.Name, gotRunner.Version)
+	//if err != nil {
+	//	return err
+	//}
+	if gotRunner == nil {
+		return errors.New("gotRunner is nil")
+	}
+
+	rsp, err := service.DeleteAPIs(ctx, del)
+	if err != nil {
+		logger.Errorf(ctx, "DeleteAPIs err:%s", err.Error())
+	} else {
+		fmt.Println(rsp)
+		if len(rsp.DelApis) != len(ids) {
+			logger.Warnf(ctx, "删除的api和实际删除数量不符：user：%v rel：%v", len(ids), len(rsp.DelApis))
+		}
+		db.GetDB().Model(&model.Runner{}).
+			Where("id = ?", gotRunner.ID).
+			Updates(map[string]interface{}{
+				"version": rsp.Version,
+			})
+		go func() {
+			s.runnerRepo.CreateRunnerVersion(ctx, &model.RunnerVersion{
+				Base:     model.Base{CreatedBy: gotRunner.CreatedBy, UpdatedBy: gotRunner.UpdatedBy},
+				Desc:     gotRunner.Description,
+				Log:      rsp.GetDelApisDesc(),
+				Version:  rsp.Version,
+				RunnerID: gotRunner.ID,
+				MetaData: json.RawMessage(jsonx.String(coder.AddApisResp{
+					Hash:    rsp.Hash,
+					Version: rsp.Version,
+					ApiChangeInfo: &coder.ApiChangeInfo{
+						CurrentVersion: rsp.Version,
+						DelApi:         rsp.DelApis,
+					},
+				})),
+				Hash: rsp.Hash,
+			})
+
+		}()
+	}
+
+	//删除对应tree和对应函数
+
+	db.GetDB().Model(&model.ServiceTree{}).Where("full_name_path in ?", delPaths).Updates(map[string]interface{}{
+		"deleted_by": operator,
+	})
+	db.GetDB().Delete(&model.ServiceTree{}, "full_name_path in ?", delPaths)
+	db.GetDB().Delete(&model.RunnerFunc{}, "id in ?", ids)
+
+	//// 设置删除者
+	//if err := s.runnerFuncRepo.SetDeletedBy(ctx, id, operator); err != nil {
+	//	logger.Error(ctx, "设置函数删除者失败", err, zap.Int64("id", id))
+	//	return fmt.Errorf("设置删除者失败: %w", err)
+	//}
+
+	//// 删除函数
+	//if err := s.runnerFuncRepo.Delete(ctx, id); err != nil {
+	//	logger.Error(ctx, "删除函数失败", err, zap.Int64("id", id))
+	//	return fmt.Errorf("删除函数失败: %w", err)
+	//}
+
+	//logger.Info(ctx, "删除函数成功", zap.Int64("id", id))
 	return nil
 }
 

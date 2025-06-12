@@ -90,12 +90,15 @@ func Init() *gin.Engine {
 
 			runnerFunc.PUT("/:id", runnerFuncAPI.Update)                    // 更新函数
 			runnerFunc.DELETE("/:id", runnerFuncAPI.Delete)                 // 删除函数
+			runnerFunc.DELETE("/delete_by_ids", runnerFuncAPI.DeleteByIds)  // 批量删除函数
 			runnerFunc.POST("/:id/fork", runnerFuncAPI.Fork)                // Fork函数
 			runnerFunc.GET("/runner/:runner_id", runnerFuncAPI.GetByRunner) // 获取Runner下的函数列表
 
 			runnerFunc.GET("/record/:func_id", runnerFuncAPI.GetFuncRecord)
 			runnerFunc.GET("/recent-records", runnerFuncAPI.GetUserRecentFuncRecords) // 获取用户最近执行函数记录（去重）
 			runnerFunc.POST("/gen", runnerFuncAPI.FunctionGen)                        // 获取用户最近执行函数记录（去重）
+			runnerFunc.GET("/generate/list", runnerFuncAPI.GeneratingList)            // 获取用户最近执行函数记录（去重）
+			runnerFunc.GET("/generating/count", runnerFuncAPI.GeneratingCount)        // 获取用户最近执行函数记录（去重）
 		}
 	}
 
