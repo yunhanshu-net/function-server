@@ -11,7 +11,8 @@ import (
 	"github.com/yunhanshu-net/function-server/pkg/dto"
 	"github.com/yunhanshu-net/pkg/llm"
 	_ "github.com/yunhanshu-net/pkg/llm/deepseek"
-	_ "github.com/yunhanshu-net/pkg/llm/qwen"
+
+	// _ "github.com/yunhanshu-net/pkg/llm/qwen"  // 暂时注释掉，包不存在
 	"github.com/yunhanshu-net/pkg/logger"
 	"github.com/yunhanshu-net/pkg/x/httpx"
 )

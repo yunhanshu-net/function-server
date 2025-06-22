@@ -2,11 +2,12 @@ package router
 
 import (
 	"github.com/gin-gonic/gin"
-	"github.com/yunhanshu-net/function-server/api/v1"
+	v1 "github.com/yunhanshu-net/function-server/api/v1"
 	"github.com/yunhanshu-net/function-server/middleware"
 	"github.com/yunhanshu-net/function-server/pkg/config"
 	"github.com/yunhanshu-net/function-server/pkg/db"
 	pkgmiddleware "github.com/yunhanshu-net/function-server/pkg/middleware"
+	"github.com/yunhanshu-net/function-server/service"
 )
 
 // Init 初始化路由
@@ -47,6 +48,13 @@ func Init() *gin.Engine {
 			runner.POST("/:id/fork", runnerAPI.Fork)                // Fork Runner
 			runner.GET("/:id/version", runnerAPI.Version)           // 获取Runner版本历史
 			runner.GET("/by-name/:user/:name", runnerAPI.GetByName) // 通过用户名和名称获取Runner
+		}
+
+		// File 相关路由
+		fileGroup := apiV1.Group("/file")
+		{
+			fileAPI := v1.NewFileAPI(service.NewQiNiuOSSService(&config.Get().QiNiuConfig))
+			fileGroup.GET("/upload-token", fileAPI.GetUploadToken) // 获取上传token
 		}
 
 		// ServiceTree 相关路由

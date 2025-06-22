@@ -23,7 +23,7 @@ alwaysApply: true
 ```rule
 name: "技术架构"
 description："检查代码是否符合该技术架构的设计思路"
-整个项目采用：go+gin+gorm+mysql+nats的技术架构nats是我们作为客户端连接runcher的nats服务端，我们需要和runcher保持nats通信
+整个项目采用：go+gin+gorm+mysql+nats的技术架构nats是我们作为客户端连接function-runtime的nats服务端，我们需要和function-runtime保持nats通信
 项目采用三层架构 
 
 api层：

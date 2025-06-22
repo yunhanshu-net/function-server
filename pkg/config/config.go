@@ -13,6 +13,7 @@ type Config struct {
 	DBConfig      DBConfig      `json:"database"`
 	LogConfig     LogConfig     `json:"log"`
 	RuncherConfig RuncherConfig `json:"runcher"`
+	QiNiuConfig   QiNiuConfig   `json:"qiniu"`
 }
 
 // ServerConfig 服务器配置
@@ -50,6 +51,15 @@ type LogConfig struct {
 type RuncherConfig struct {
 	NatsURL string `json:"nats_url"` // NATS服务器URL
 	Timeout int    `json:"timeout"`  // 请求超时时间（秒）
+}
+
+// QiNiuConfig 七牛云配置
+type QiNiuConfig struct {
+	Bucket    string `json:"bucket"`     // 存储空间名称
+	AccessKey string `json:"access_key"` // AccessKey
+	SecretKey string `json:"secret_key"` // SecretKey
+	Domain    string `json:"domain"`     // CDN域名
+	UseHTTPS  bool   `json:"use_https"`  // 是否使用HTTPS
 }
 
 var config Config
@@ -103,6 +113,13 @@ func Init() error {
 			RuncherConfig: RuncherConfig{
 				NatsURL: "nats://localhost:4222",
 				Timeout: 20,
+			},
+			QiNiuConfig: QiNiuConfig{
+				Bucket:    "your-bucket",
+				AccessKey: "your-access-key",
+				SecretKey: "your-secret-key",
+				Domain:    "https://your-domain.com",
+				UseHTTPS:  true,
 			},
 		}
 

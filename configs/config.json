@@ -27,5 +27,12 @@
   "runcher": {
     "nats_url": "nats://127.0.0.1:4222",
     "timeout": 50
+  },
+  "qiniu": {
+    "bucket": "geeleo",
+    "access_key": "ehF_E4x_EyO_wSN_nwqExyhXPe5hGl5Xjo89_cZ6",
+    "secret_key": "FjfIpqUevEcVx9bQxdgiuX9Di-CUOrKFkR88CZAj",
+    "domain": "http://cdn.geeleo.com",
+    "use_https": false
   }
 } 

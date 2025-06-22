@@ -144,6 +144,7 @@ func (s *RunnerFunc) Create(ctx context.Context, runnerFunc *model.RunnerFunc) e
 		if fc.User == "" {
 			fc.User = "admin"
 		}
+		fc.ID = 0
 		// 创建函数
 		err = s.runnerFuncRepo.Create(ctx, &fc)
 		if err != nil {
