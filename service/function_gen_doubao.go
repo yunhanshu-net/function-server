@@ -103,7 +103,7 @@ func (s *FunctionGenDoubao) FunctionGenWithDoubao(ctx context.Context, req *dto.
 
 	pkgPath := get.GetPackagePath() // 服务目录
 	bd := RagReqDoubao{Limit: 10, Role: "all"}
-	post, err := httpx.Post("http://localhost:8080/function/run/beiluo/llm_gen_function/knowledge/get/", bd, &ragResp)
+	post, err := httpx.Post("http://localhost:8080/function/run/beiluo/llm_gen_function/knowledge/get/").Body(bd).Do(&ragResp)
 	if err != nil {
 		return nil, err
 	}
