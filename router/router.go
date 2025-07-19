@@ -87,6 +87,7 @@ func Init() *gin.Engine {
 
 		// RunnerFunc 相关路由
 		runnerFuncAPI := v1.NewRunnerFuncAPI(db.GetDB())
+		runnerFuncConfigAPI := v1.NewRunnerFuncConfig(runnerFuncAPI.GetService())
 		runnerFunc := apiV1.Group("/runner-func")
 		{
 			runnerFunc.POST("", runnerFuncAPI.Create)                            // 创建函数
@@ -107,6 +108,10 @@ func Init() *gin.Engine {
 			runnerFunc.POST("/gen", runnerFuncAPI.FunctionGen)                        // 获取用户最近执行函数记录（去重）
 			runnerFunc.GET("/generate/list", runnerFuncAPI.GeneratingList)            // 获取用户最近执行函数记录（去重）
 			runnerFunc.GET("/generating/count", runnerFuncAPI.GeneratingCount)        // 获取用户最近执行函数记录（去重）
+			
+			// 配置相关路由
+			runnerFunc.GET("/config", runnerFuncConfigAPI.GetFuncConfig)    // 获取函数配置
+			runnerFunc.PUT("/config", runnerFuncConfigAPI.UpdateFuncConfig) // 更新函数配置
 		}
 	}
 

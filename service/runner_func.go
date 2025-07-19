@@ -25,6 +25,7 @@ type RunnerFunc struct {
 	runnerRepo      *repo.RunnerRepo
 	serviceTreeRepo *repo.ServiceTreeRepo
 	serviceTree     *ServiceTree
+	funcConfigRepo  *repo.FuncConfigRepo
 }
 
 // NewRunnerFunc 创建函数服务
@@ -34,6 +35,7 @@ func NewRunnerFunc(db *gorm.DB) *RunnerFunc {
 		serviceTreeRepo: repo.NewServiceTreeRepo(db),
 		serviceTree:     NewServiceTree(db),
 		runnerRepo:      repo.NewRunnerRepo(db),
+		funcConfigRepo:  repo.NewFuncConfigRepo(db),
 	}
 	return svc
 }
@@ -145,6 +147,12 @@ func (s *RunnerFunc) Create(ctx context.Context, runnerFunc *model.RunnerFunc) e
 			fc.User = "admin"
 		}
 		fc.ID = 0
+
+		// 检查是否有配置
+		if addAPI.ParamsConfig != nil && addAPI.ParamsData != nil {
+			fc.HasConfig = true
+		}
+
 		// 创建函数
 		err = s.runnerFuncRepo.Create(ctx, &fc)
 		if err != nil {
@@ -152,6 +160,15 @@ func (s *RunnerFunc) Create(ctx context.Context, runnerFunc *model.RunnerFunc) e
 			return fmt.Errorf("创建函数失败: %w", err)
 		}
 		runnerFunc.ID = fc.ID
+
+		// 如果有配置，创建配置记录
+		if fc.HasConfig {
+			if err := s.createFuncConfig(ctx, &fc, addAPI.ParamsConfig, addAPI.ParamsData, rsp.Version); err != nil {
+				logger.Error(ctx, "创建配置记录失败", err, zap.Int64("func_id", fc.ID))
+				// 不返回错误，因为函数创建已经成功
+			}
+		}
+
 		tree := &model.ServiceTree{
 			Type:     model.ServiceTreeTypeFunction,
 			ParentID: fc.TreeID,
@@ -641,4 +658,92 @@ func (s *RunnerFunc) GetUserRecentFuncRecordsWithDetails(ctx context.Context, us
 		zap.Int64("total", total))
 
 	return respList, total, nil
+}
+
+// createFuncConfig 创建函数配置记录
+func (s *RunnerFunc) createFuncConfig(ctx context.Context, runnerFunc *model.RunnerFunc, configDefine interface{}, configData interface{}, version string) error {
+	// 生成配置键
+	configKey := s.generateConfigKey(runnerFunc.Path, runnerFunc.Method)
+
+	// 序列化配置结构体
+	configStructData, err := json.Marshal(configDefine)
+	if err != nil {
+		return fmt.Errorf("序列化配置结构体失败: %w", err)
+	}
+
+	// 序列化配置初始值
+	configDataJson, err := json.Marshal(configData)
+	if err != nil {
+		return fmt.Errorf("序列化配置数据失败: %w", err)
+	}
+
+	// 创建配置记录
+	funcConfig := &model.FuncConfig{
+		FuncID:       runnerFunc.ID,
+		ConfigKey:    configKey,
+		ConfigType:   "json",
+		ConfigStruct: json.RawMessage(configStructData),
+		ConfigData:   json.RawMessage(configDataJson),
+		Description:  runnerFunc.Description,
+		Version:      version,
+		IsActive:     true,
+		Base:         model.Base{CreatedBy: runnerFunc.CreatedBy, UpdatedBy: runnerFunc.UpdatedBy},
+	}
+
+	return s.funcConfigRepo.Create(ctx, funcConfig)
+}
+
+// generateConfigKey 生成配置键
+func (s *RunnerFunc) generateConfigKey(path, method string) string {
+	// 将路径中的分隔符替换为点号
+	pathKey := strings.ReplaceAll(strings.Trim(path, "/"), "/", ".")
+	// 去除前后多余的点号
+	pathKey = strings.Trim(pathKey, ".")
+
+	// 生成配置键格式: function.{path}.{method}
+	return fmt.Sprintf("function.%s.%s", pathKey, strings.ToLower(method))
+}
+
+// GetFuncConfig 获取函数配置
+func (s *RunnerFunc) GetFuncConfig(ctx context.Context, funcID int64) (*model.FuncConfig, error) {
+	logger.Debug(ctx, "开始获取函数配置", zap.Int64("func_id", funcID))
+	return s.funcConfigRepo.GetByFuncID(ctx, funcID)
+}
+
+// GetConfigByKey 根据配置键获取配置
+func (s *RunnerFunc) GetConfigByKey(ctx context.Context, configKey string) (*model.FuncConfig, error) {
+	logger.Debug(ctx, "开始根据配置键获取配置", zap.String("config_key", configKey))
+	return s.funcConfigRepo.GetByConfigKey(ctx, configKey)
+}
+
+// UpdateFuncConfig 更新函数配置
+func (s *RunnerFunc) UpdateFuncConfig(ctx context.Context, funcID int64, configData interface{}) error {
+	logger.Debug(ctx, "开始更新函数配置", zap.Int64("func_id", funcID))
+
+	// 获取现有配置
+	existingConfig, err := s.funcConfigRepo.GetByFuncID(ctx, funcID)
+	if err != nil {
+		return fmt.Errorf("获取现有配置失败: %w", err)
+	}
+	if existingConfig == nil {
+		return fmt.Errorf("函数配置不存在")
+	}
+
+	// 序列化新配置数据
+	newConfigData, err := json.Marshal(configData)
+	if err != nil {
+		return fmt.Errorf("序列化配置数据失败: %w", err)
+	}
+
+	// 更新配置数据
+	existingConfig.ConfigData = json.RawMessage(newConfigData)
+	existingConfig.IsActive = true
+
+	return s.funcConfigRepo.Update(ctx, existingConfig.ID, existingConfig)
+}
+
+// ListFuncConfigs 获取函数的所有配置版本
+func (s *RunnerFunc) ListFuncConfigs(ctx context.Context, funcID int64) ([]model.FuncConfig, error) {
+	logger.Debug(ctx, "开始获取函数配置版本", zap.Int64("func_id", funcID))
+	return s.funcConfigRepo.ListByFuncID(ctx, funcID)
 }

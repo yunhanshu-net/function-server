@@ -35,6 +35,11 @@ func NewRunnerFuncAPI(db *gorm.DB) *RunnerFuncAPI {
 	}
 }
 
+// GetService 获取服务实例
+func (api *RunnerFuncAPI) GetService() *service.RunnerFunc {
+	return api.service
+}
+
 // Create 创建函数
 func (api *RunnerFuncAPI) Create(c *gin.Context) {
 	logger.Debug(c, "开始处理RunnerFunc创建请求")

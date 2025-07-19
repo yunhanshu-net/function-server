@@ -33,6 +33,7 @@ type RunnerFunc struct {
 	Method          string          `json:"method" gorm:"type:varchar(255);column:method"`
 	Path            string          `json:"path" gorm:"type:varchar(255);column:path"`
 	Code            string          `json:"-" gorm:"-"`
+	HasConfig       bool            `json:"has_config" gorm:"column:has_config;comment:是否存在配置"` // 是否存在配置
 }
 
 func (RunnerFunc) TableName() string {
