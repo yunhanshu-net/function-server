@@ -19,15 +19,11 @@ import (
 	"time"
 )
 
-type Functions struct {
-	runcher service.RuncherService
-	runner  *service.Runner
-}
-
 func NewFunctions(db *gorm.DB) *Functions {
 	return &Functions{
-		runcher: service.GetRuncherService(),
-		runner:  service.NewRunner(db),
+		runcher:         service.GetRuncherService(),
+		runner:          service.NewRunner(db),
+		callbackService: service.NewCallbackService(db),
 	}
 }
 

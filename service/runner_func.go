@@ -219,7 +219,16 @@ func (s *RunnerFunc) Create(ctx context.Context, runnerFunc *model.RunnerFunc) e
 // Get 获取函数详情
 func (s *RunnerFunc) Get(ctx context.Context, id int64) (*model.RunnerFunc, error) {
 	logger.Debug(ctx, "开始获取函数详情", zap.Int64("id", id))
-	return s.runnerFuncRepo.Get(ctx, id)
+	get, err := s.runnerFuncRepo.Get(ctx, id)
+	if err != nil {
+		return nil, err
+	}
+	trim := strings.Trim(get.Path, "/")
+	split := strings.Split(trim, "/") // a/b/c/d
+	split = split[2:]
+	get.Router = strings.Join(split, "/")
+	return get, nil
+
 }
 func (s *RunnerFunc) Versions(ctx context.Context, id int64) ([]model.FuncVersion, error) {
 	versions, err := s.runnerFuncRepo.GetVersions(ctx, id)
@@ -736,7 +745,7 @@ func (s *RunnerFunc) UpdateFuncConfig(ctx context.Context, funcID int64, configD
 	}
 
 	// 更新配置数据
-	existingConfig.ConfigData = json.RawMessage(newConfigData)
+	existingConfig.ConfigData = newConfigData
 	existingConfig.IsActive = true
 
 	return s.funcConfigRepo.Update(ctx, existingConfig.ID, existingConfig)

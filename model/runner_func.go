@@ -32,6 +32,7 @@ type RunnerFunc struct {
 	ForkFromID      *int64          `json:"fork_from_id"`
 	Method          string          `json:"method" gorm:"type:varchar(255);column:method"`
 	Path            string          `json:"path" gorm:"type:varchar(255);column:path"`
+	Router          string          `json:"router" gorm:"-"`
 	Code            string          `json:"-" gorm:"-"`
 	HasConfig       bool            `json:"has_config" gorm:"column:has_config;comment:是否存在配置"` // 是否存在配置
 }
