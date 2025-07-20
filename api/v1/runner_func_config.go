@@ -122,3 +122,4 @@ func (r *RunnerFuncConfig) UpdateFuncConfig(c *gin.Context) {
 
 	response.Success(c, resp)
 }
+ 
