@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"github.com/pkg/errors"
+	"github.com/yunhanshu-net/function-go/pkg/dto/usercall"
 	"github.com/yunhanshu-net/function-runtime/pkg/dto/coder"
 	"github.com/yunhanshu-net/function-server/pkg/db"
 	"github.com/yunhanshu-net/pkg/dto/runnerproject"
@@ -704,7 +705,7 @@ func (s *RunnerFunc) createFuncConfig(ctx context.Context, runnerFunc *model.Run
 
 // generateConfigKey 生成配置键
 func (s *RunnerFunc) generateConfigKey(path, method string) string {
-	return dto.GenerateConfigKey(path, method)
+	return usercall.GenerateConfigKey(path, method)
 }
 
 // GetFuncConfig 获取函数配置
