@@ -704,13 +704,7 @@ func (s *RunnerFunc) createFuncConfig(ctx context.Context, runnerFunc *model.Run
 
 // generateConfigKey 生成配置键
 func (s *RunnerFunc) generateConfigKey(path, method string) string {
-	// 将路径中的分隔符替换为点号
-	pathKey := strings.ReplaceAll(strings.Trim(path, "/"), "/", ".")
-	// 去除前后多余的点号
-	pathKey = strings.Trim(pathKey, ".")
-
-	// 生成配置键格式: function.{path}.{method}，使用大写方法名
-	return fmt.Sprintf("function.%s.%s", pathKey, strings.ToUpper(method))
+	return dto.GenerateConfigKey(path, method)
 }
 
 // GetFuncConfig 获取函数配置
