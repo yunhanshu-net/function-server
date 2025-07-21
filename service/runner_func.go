@@ -709,8 +709,8 @@ func (s *RunnerFunc) generateConfigKey(path, method string) string {
 	// 去除前后多余的点号
 	pathKey = strings.Trim(pathKey, ".")
 
-	// 生成配置键格式: function.{path}.{method}，使用大写方法名与注册时保持一致
-	return fmt.Sprintf("function.%s.%s", pathKey, method)
+	// 生成配置键格式: function.{path}.{method}，使用大写方法名
+	return fmt.Sprintf("function.%s.%s", pathKey, strings.ToUpper(method))
 }
 
 // GetFuncConfig 获取函数配置
