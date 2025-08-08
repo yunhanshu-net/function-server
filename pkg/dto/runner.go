@@ -189,3 +189,7 @@ type VersionHistoryItem struct {
 	CreatedBy string    `json:"created_by"` // 创建者
 	CreatedAt time.Time `json:"created_at"` // 创建时间
 }
+
+type RebuildProjectReq struct {
+	RunnerID int64 `json:"runner_id" form:"runner_id" binding:"required"`
+}

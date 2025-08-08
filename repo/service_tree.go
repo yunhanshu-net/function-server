@@ -25,6 +25,10 @@ type ServiceTreeRepo struct {
 	db *gorm.DB
 }
 
+func (r *ServiceTreeRepo) GetDB() *gorm.DB {
+	return r.db
+}
+
 // NewServiceTreeRepo 创建ServiceTree仓库
 func NewServiceTreeRepo(db *gorm.DB) *ServiceTreeRepo {
 	return &ServiceTreeRepo{db: db}

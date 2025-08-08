@@ -40,14 +40,15 @@ func Init() *gin.Engine {
 		runnerAPI := v1.NewRunnerAPI(db.GetDB())
 		runner := apiV1.Group("/runner")
 		{
-			runner.POST("", runnerAPI.Create)                       // 创建Runner
-			runner.GET("", runnerAPI.List)                          // 获取Runner列表
-			runner.GET("/:id", runnerAPI.Get)                       // 获取Runner详情
-			runner.PUT("/:id", runnerAPI.Update)                    // 更新Runner
-			runner.DELETE("/:id", runnerAPI.Delete)                 // 删除Runner
-			runner.POST("/:id/fork", runnerAPI.Fork)                // Fork Runner
-			runner.GET("/:id/version", runnerAPI.Version)           // 获取Runner版本历史
-			runner.GET("/by-name/:user/:name", runnerAPI.GetByName) // 通过用户名和名称获取Runner
+			runner.POST("", runnerAPI.Create)                         // 创建Runner
+			runner.GET("", runnerAPI.List)                            // 获取Runner列表
+			runner.GET("/:id", runnerAPI.Get)                         // 获取Runner详情
+			runner.PUT("/:id", runnerAPI.Update)                      // 更新Runner
+			runner.DELETE("/:id", runnerAPI.Delete)                   // 删除Runner
+			runner.POST("/:id/fork", runnerAPI.Fork)                  // Fork Runner
+			runner.GET("/:id/version", runnerAPI.Version)             // 获取Runner版本历史
+			runner.GET("/by-name/:user/:name", runnerAPI.GetByName)   // 通过用户名和名称获取Runner
+			runner.POST("/rebuild_project", runnerAPI.RebuildProject) // 重新编译整个工作空间，刷新全部函数
 		}
 
 		// File 相关路由
@@ -108,7 +109,7 @@ func Init() *gin.Engine {
 			runnerFunc.POST("/gen", runnerFuncAPI.FunctionGen)                        // 获取用户最近执行函数记录（去重）
 			runnerFunc.GET("/generate/list", runnerFuncAPI.GeneratingList)            // 获取用户最近执行函数记录（去重）
 			runnerFunc.GET("/generating/count", runnerFuncAPI.GeneratingCount)        // 获取用户最近执行函数记录（去重）
-			
+
 			// 配置相关路由
 			runnerFunc.GET("/config", runnerFuncConfigAPI.GetFuncConfig)    // 获取函数配置
 			runnerFunc.PUT("/config", runnerFuncConfigAPI.UpdateFuncConfig) // 更新函数配置

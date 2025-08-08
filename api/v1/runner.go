@@ -357,3 +357,24 @@ func (api *RunnerAPI) GetByName(c *gin.Context) {
 	logger.Info(c, "获取Runner详情成功", zap.String("user", user), zap.String("name", name))
 	response.Success(c, runners[0])
 }
+
+// RebuildProject 重新编译整个项目
+func (api *RunnerAPI) RebuildProject(c *gin.Context) {
+
+	var req dto.RebuildProjectReq
+
+	err := c.ShouldBindJSON(&req)
+	if err != nil {
+		response.ParamError(c, err.Error())
+		return
+	}
+
+	res, err := api.service.RebuildProject(c, req.RunnerID)
+	if err != nil {
+		logger.Error(c, "获取Runner详情失败", err)
+		response.ServerError(c, "获取Runner详情失败")
+		return
+	}
+
+	response.Success(c, res)
+}

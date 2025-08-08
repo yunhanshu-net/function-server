@@ -32,7 +32,7 @@ type RuncherService interface {
 	CreateProject(ctx context.Context, runner *model.Runner) (string, error)
 	DeleteProject(ctx context.Context, req *coder.DeleteProjectReq) (rsp *coder.DeleteProjectResp, err error)
 	AddBizPackage2(ctx context.Context, bizPackage *coder.BizPackage) (*coder.BizPackageResp, error)
-
+	RebuildProject(ctx context.Context, req *coder.RebuildProjectReq) (rsp *coder.RebuildProjectResp, err error)
 	// Close 关闭服务
 	Close() error
 }
@@ -77,6 +77,21 @@ func NewRuncherService(opts RuncherOptions) (RuncherService, error) {
 		nc:      nc,
 		timeout: opts.Timeout,
 	}, nil
+}
+
+func newNatsMsg(ctx context.Context, subject, user, runner, version, method, router string) *nats.Msg {
+
+	header := nats.Header{}
+	msg := nats.NewMsg(subject)
+
+	header.Set("trace_id", getTraceID(ctx))
+	header.Set("user", user)
+	header.Set("runner", runner)
+	header.Set("version", version)
+	header.Set("method", method)
+	header.Set("router", router)
+	msg.Header = header
+	return msg
 }
 
 func (s *runcherService) RunFunction2(ctx context.Context, req *runcher.RunFunctionReq) (*nats.Msg, error) {
@@ -126,6 +141,35 @@ func (s *runcherService) RunFunction2(ctx context.Context, req *runcher.RunFunct
 
 	return resp, nil
 }
+
+// RebuildProject 重新编译整个项目，然后返回全量api信息，平台侧可以全量更新
+func (s *runcherService) RebuildProject(ctx context.Context, req *coder.RebuildProjectReq) (rsp *coder.RebuildProjectResp, err error) {
+
+	msg := newNatsMsg(ctx, "coder.rebuildProject", req.User, req.Name, req.Version, "", "")
+	msg.Data = []byte(jsonx.JSONString(req))
+	// 发送请求并等待响应
+	resp, err := s.nc.RequestMsg(msg, time.Second*100)
+	if err != nil {
+		logger.Error(ctx, "RebuildProject 执行Runner函数失败", err)
+		return nil, fmt.Errorf("RebuildProject 执行Runner函数失败: %w", err)
+	}
+	// 解析响应码
+	code := resp.Header.Get("code")
+	if code != "0" {
+		errMsg := resp.Header.Get("msg")
+		logger.Error(ctx, "RebuildProject Runner函数执行返回错误", nil, zap.String("errMsg", errMsg))
+		return nil, fmt.Errorf("RebuildProject runner函数执行错误: %s", errMsg)
+	}
+
+	rsp = &coder.RebuildProjectResp{}
+	err = json.Unmarshal(resp.Data, &rsp)
+	if err != nil {
+		return nil, fmt.Errorf("RebuildProject 解析响应数据失败: %w", err)
+	}
+
+	return rsp, nil
+}
+
 func (s *runcherService) DeleteProject(ctx context.Context, req *coder.DeleteProjectReq) (rsp *coder.DeleteProjectResp, err error) {
 
 	if req == nil {

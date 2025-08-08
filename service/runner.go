@@ -4,7 +4,9 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"github.com/yunhanshu-net/function-go/pkg/dto/api"
 	"github.com/yunhanshu-net/function-runtime/pkg/dto/coder"
+	"strings"
 	"time"
 
 	"github.com/yunhanshu-net/function-server/model"
@@ -428,4 +430,98 @@ func (s *Runner) SaveVersion(ctx context.Context, runnerID int64, version string
 func (s *Runner) GetByName(ctx context.Context, name string) (*model.Runner, error) {
 	logger.Debug(ctx, "根据名称获取Runner", zap.String("name", name))
 	return s.repo.GetByName(ctx, name)
+}
+
+func (s *Runner) RebuildProject(ctx context.Context, rid int64) (*coder.RebuildProjectResp, error) {
+	get, err := s.repo.Get(ctx, rid)
+	if err != nil {
+		return nil, err
+	}
+	req := &coder.RebuildProjectReq{
+		User:    get.User,
+		Name:    get.Name,
+		Version: get.Version,
+		Body:    "{}",
+	}
+	rsp, err := s.runcherService.RebuildProject(ctx, req)
+	if err != nil {
+		return nil, err
+	}
+	defer func() {
+		if get.Version != rsp.CurrentVersion {
+			s.repo.GetDB().Model(&model.Runner{}).Where("id = ?", get.ID).Updates(map[string]interface{}{
+				"version": rsp.CurrentVersion,
+			})
+		}
+	}()
+
+	services := NewServiceTree(s.repo.GetDB())
+	funcService := NewRunnerFunc(s.repo.GetDB())
+	trees, err := services.ListFuncByRunnerID(ctx, rid)
+	//todo diff api
+	if err != nil {
+		return nil, err
+	}
+	allMap := make(map[string]*api.Info)
+	if rsp == nil || rsp.Apis == nil {
+		return rsp, nil
+	}
+	for _, api := range rsp.Apis {
+		path := strings.TrimPrefix(api.Router, "/")
+		allMap[path] = api
+	}
+	treeMap := make(map[string]*model.ServiceTree)
+
+	for _, tree := range trees {
+		treeMap[tree.GetPackagePath()] = &tree
+	}
+
+	delPath := []string{}
+	for _, tree := range trees {
+		if allMap[tree.GetPackagePath()] == nil { //平台存在，实际不存在，需要删除
+			delPath = append(delPath, tree.FullNamePath)
+		}
+	}
+	if len(delPath) > 0 {
+
+		logger.Infof(ctx, "deleteFunctionsByFullPath 删除了：%v api", delPath)
+		err := funcService.deleteFunctionsByFullPath(ctx, delPath, get.User)
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	for _, api := range rsp.Apis {
+		v := treeMap[strings.TrimPrefix(api.Router, "/")]
+		if v == nil { //说明实际存在，平台不存在，需要新增
+
+			runnerFunc := model.RunnerFunc{
+				RunnerID: rid,
+				User:     get.User,
+			}
+			change := &coder.ApiChangeInfo{}
+			change.AddApi = append(change.AddApi, api)
+
+			resp := &coder.AddApisResp{
+				Hash:          rsp.Hash,
+				Version:       rsp.CurrentVersion,
+				ApiChangeInfo: change,
+			}
+			err := funcService.createFunctionWithDependencies(ctx, &runnerFunc, api, resp, true)
+			if err != nil {
+				logger.Errorf(ctx, "createFunctionWithDependencies err: %s %+v resp:%+v", err, runnerFunc, resp)
+				return nil, err
+			}
+		} else {
+			info := v.RunnerFunc.DiffWithAPIInfo(api)
+			if info != nil {
+				logger.Infof(ctx, "DiffWithAPIInfo api发生变更:%+v", info)
+				s.repo.GetDB().Model(&model.RunnerFunc{}).Where("id = ?", v.RunnerFunc.ID).Updates(info)
+			}
+		}
+	}
+
+	fmt.Println(rsp)
+	return rsp, nil
+
 }

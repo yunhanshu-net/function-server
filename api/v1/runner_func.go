@@ -126,8 +126,6 @@ func (api *RunnerFuncAPI) Get(c *gin.Context) {
 	}
 	req.ID = id
 
-	logger.Debug(c, "开始处理RunnerFunc详情请求", zap.Int64("id", id))
-
 	// 调用服务层获取函数详情
 	runnerFunc, err := api.service.Get(c, id)
 	if err != nil {

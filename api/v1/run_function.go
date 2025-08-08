@@ -79,7 +79,7 @@ func (r *Functions) Run(c *gin.Context) {
 	log.EndTs = time.Now().UnixMilli()
 	log.Cost = log.EndTs - log.StartTs
 
-	get := c.Request.Header.Get("X-Function-ID")
+	get := c.Request.Header.Get("x-function-id")
 	funcId, err := strconv.Atoi(get)
 	if err != nil {
 		logger.Errorf(c, "函数id获取失败！")

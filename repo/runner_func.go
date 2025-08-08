@@ -38,7 +38,6 @@ func (r *RunnerFuncRepo) GetByFullPath(ctx context.Context, method string, fullP
 
 // Get 获取函数详情
 func (r *RunnerFuncRepo) Get(ctx context.Context, id int64) (*model.RunnerFunc, error) {
-	logger.Debug(ctx, "开始获取函数", zap.Int64("id", id))
 	var runnerFunc model.RunnerFunc
 	err := r.db.WithContext(ctx).First(&runnerFunc, id).Error
 	if err != nil {
@@ -76,6 +75,12 @@ func (r *RunnerFuncRepo) Update(ctx context.Context, id int64, updateData *model
 
 // Delete 删除函数
 func (r *RunnerFuncRepo) Delete(ctx context.Context, id int64) error {
+	logger.Debug(ctx, "开始删除函数", zap.Int64("id", id))
+	return r.db.WithContext(ctx).Delete(&model.RunnerFunc{}, id).Error
+}
+
+// DeleteByRunnerID 删除某个runner下的所有函数
+func (r *RunnerFuncRepo) DeleteByRunnerID(ctx context.Context, id int64) error {
 	logger.Debug(ctx, "开始删除函数", zap.Int64("id", id))
 	return r.db.WithContext(ctx).Delete(&model.RunnerFunc{}, id).Error
 }

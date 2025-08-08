@@ -768,3 +768,13 @@ func (s *ServiceTree) CreateWithTx(ctx context.Context, tx *gorm.DB, serviceTree
 func (s *ServiceTree) UpdateWithTx(ctx context.Context, tx *gorm.DB, treeId int64, serviceTree *model.ServiceTree) error {
 	return tx.WithContext(ctx).Where("id =?", treeId).Updates(serviceTree).Error
 }
+func (s *ServiceTree) ListFuncByRunnerID(ctx context.Context, runnerId int64) ([]model.ServiceTree, error) {
+	db := s.repo.GetDB()
+	var trees []model.ServiceTree
+	err := db.WithContext(ctx).Where("runner_id = ? and type = ?", runnerId, "function").
+		Preload("RunnerFunc").Find(&trees).Error
+	if err != nil {
+		return nil, err
+	}
+	return trees, nil
+}
