@@ -324,7 +324,7 @@ func (s *RunnerFunc) FunctionGen(ctx context.Context, req *dto.FunctionGenReq) (
 			return
 		}
 		logger.Infof(ctx, "FunctionGen PushApis: %+v", rsp)
-		_, err = NewRunner(db.GetDB()).RebuildProject(ctx, req.RunnerID)
+
 		if err != nil {
 			logger.Errorf(ctx, "FunctionGen NewRunner RebuildProject:%s", err.Error())
 
@@ -350,7 +350,10 @@ func (s *RunnerFunc) FunctionGen(ctx context.Context, req *dto.FunctionGenReq) (
 			return
 		}
 		logger.Infof(ctx, "FunctionGen NewRunner RebuildProject: %+v success", req)
-
+		_, err = NewRunner(db.GetDB()).RebuildProject(ctx, req.RunnerID)
+		if err != nil {
+			logger.Errorf(ctx, "FunctionGen NewRunner RebuildProject:%s", err.Error())
+		}
 	}()
 
 	return fg, nil

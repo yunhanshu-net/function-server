@@ -58,7 +58,7 @@ func (api *RunnerFuncAPI) GeneratingList(c *gin.Context) {
 	var list []model.FunctionGen
 	table, err := query.AutoPaginateTable(c,
 		db.GetDB().Omit("code,update_code").
-			Where("runner_id = ?", req.RunnerID),
+			Where("runner_id = ?", req.RunnerID).Order("created_at desc"),
 		&model.FunctionGen{}, &list, &req.PageInfoReq)
 	if err != nil {
 		response.ServerError(c, err.Error())
