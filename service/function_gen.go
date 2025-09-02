@@ -296,12 +296,11 @@ func (s *RunnerFunc) FunctionGen(ctx context.Context, req *dto.FunctionGenReq) (
 		deleteVar := fmtx.DeleteVar("RouterGroup", code)
 		fmtCode := fmtx.ConvertToRouterGroup(deleteVar)
 		up := model.FunctionGen{
-			CostMill:   time.Now().Sub(now).Milliseconds(),
 			Code:       code,
 			UpdateCode: fmtCode,
 			Status:     "待审核",
 		}
-		mysqlDb.Where("id=?", fg.ID).Updates(up)
+
 		//todo
 		//GetRuncherService().AddAPI2(ctx,)
 		runnerInfo, err := runnerproject.NewRunner(runner.User, runner.Name, runner.Version)
@@ -336,23 +335,29 @@ func (s *RunnerFunc) FunctionGen(ctx context.Context, req *dto.FunctionGenReq) (
 					logger.Errorf(ctx, "重试修复失败: %v", retryErr)
 					// 记录最终失败状态和错误信息
 					mysqlDb.Model(&model.FunctionGen{}).Where("id=?", fg.ID).Updates(map[string]interface{}{
-						"status":  "重试失败",
-						"comment": fmt.Sprintf("重试修复失败: %v", retryErr),
+						"status":    "重试失败",
+						"cost_mill": time.Now().Sub(now).Milliseconds(),
+						"comment":   fmt.Sprintf("重试修复失败: %v", retryErr),
 					})
 				}
 			} else {
 				// 非构建失败的其他错误，直接标记为失败
 				mysqlDb.Model(&model.FunctionGen{}).Where("id=?", fg.ID).Updates(map[string]interface{}{
-					"status":  "失败",
-					"comment": fmt.Sprintf("构建失败: %v", err),
+					"status":    "失败",
+					"cost_mill": time.Now().Sub(now).Milliseconds(),
+					"comment":   fmt.Sprintf("构建失败: %v", err),
 				})
 			}
 			return
 		}
 		logger.Infof(ctx, "FunctionGen NewRunner RebuildProject: %+v success", req)
 		_, err = NewRunner(db.GetDB()).RebuildProject(ctx, req.RunnerID)
+		up.CostMill = time.Now().Sub(now).Milliseconds()
 		if err != nil {
 			logger.Errorf(ctx, "FunctionGen NewRunner RebuildProject:%s", err.Error())
+			up.Status = "失败"
+		} else {
+			mysqlDb.Where("id=?", fg.ID).Updates(up)
 		}
 	}()
 
