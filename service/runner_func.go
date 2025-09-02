@@ -626,6 +626,24 @@ func (s *RunnerFunc) createFuncConfig(ctx context.Context, runnerFunc *model.Run
 		return fmt.Errorf("序列化配置数据失败: %w", err)
 	}
 
+	db := s.funcConfigRepo.GetDB()
+	var fg model.FuncConfig
+	db.Where("config_key = ?", configKey).First(&fg)
+
+	if fg.ID != 0 { //todo 说明配置结构变更了，更新配置，这里需要更新配置，但是value不更新
+		eq := fg.DiffStruct(configStructData)
+		if !eq {
+			logger.Infof(ctx, "配置发生了变更：%s", configStructData)
+			db.Where("config_key = ?", configKey).Updates(&model.FuncConfig{
+				FuncID:       runnerFunc.ID,
+				ConfigStruct: configStructData,
+				Version:      version,
+				IsActive:     true,
+			})
+			return nil
+		}
+	}
+
 	// 创建配置记录
 	funcConfig := &model.FuncConfig{
 		FuncID:       runnerFunc.ID,
@@ -722,6 +740,9 @@ func (s *RunnerFunc) createFunctionWithDependencies(ctx context.Context, runnerF
 		tree, err := s.serviceTree.GetByFullPath(ctx, runnerFunc.User, path)
 		if err != nil {
 			return err
+		}
+		if tree == nil {
+			fmt.Println(fc, tree)
 		}
 		fc.TreeID = tree.ID
 	}

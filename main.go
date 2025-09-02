@@ -64,6 +64,7 @@ func main() {
 		// 设置全局RuncherService实例
 		service.SetGlobalRuncherService(runcherService)
 	}
+	defer runcherService.Close()
 
 	// 初始化路由
 	r := router.Init()

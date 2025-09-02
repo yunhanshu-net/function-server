@@ -3,8 +3,9 @@ package base
 import (
 	"context"
 	"fmt"
-	"gorm.io/gorm"
 	"strings"
+
+	"gorm.io/gorm"
 )
 
 // Paginated 分页结果结构体
@@ -69,10 +70,11 @@ func (i *PageInfoReq) GetLimit(defaultSize ...int) int {
 
 // GetOffset 获取分页偏移量
 func (i *PageInfoReq) GetOffset() int {
-	if i.Page < 1 {
-		i.Page = 1
+	page := i.Page
+	if page < 1 {
+		page = 1
 	}
-	return (i.Page - 1) * i.GetLimit()
+	return (page - 1) * i.GetLimit()
 }
 
 // SafeColumn 检查列名是否安全（防SQL注入）

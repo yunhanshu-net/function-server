@@ -36,15 +36,29 @@ func (r *Functions) Run(c *gin.Context) {
 		Router: c.Param("router"),
 	}
 
+	traceId := c.Request.Header.Get("x-trace-id")
+	if traceId == "" {
+		logger.Errorf(c, "获取traceId失败！")
+	}
+
 	log := model.FuncRunRecord{
 		Base: model.Base{
 			CreatedBy: c.GetString("user"),
 			UpdatedBy: c.GetString("user"),
 		},
 		FuncId:  1,
+		Status:  "running",
+		TraceId: traceId,
 		Request: json.RawMessage(req.Body),
 		StartTs: time.Now().UnixMilli(),
 	}
+	get := c.Request.Header.Get("x-function-id")
+	funcId, err := strconv.Atoi(get)
+	if err != nil {
+		logger.Errorf(c, "函数id获取失败！")
+	}
+
+	log.FuncId = int64(funcId)
 	if req.Method == http.MethodGet {
 		req.RawQuery = c.Request.URL.RawQuery
 		toMap := urlx.QueryToMap(req.RawQuery)
@@ -70,28 +84,23 @@ func (r *Functions) Run(c *gin.Context) {
 		return
 	}
 	req.Version = rn.Version
-
-	function2, err := r.runcher.RunFunction2(c, req)
+	db.GetDB().Model(&model.FuncRunRecord{}).Create(&log)
+	function2, err := r.runcher.RunFunction3(c, req)
 	if err != nil {
 		response.ServerError(c, err.Error())
 		return
 	}
-	log.EndTs = time.Now().UnixMilli()
-	log.Cost = log.EndTs - log.StartTs
 
-	get := c.Request.Header.Get("x-function-id")
-	funcId, err := strconv.Atoi(get)
-	if err != nil {
-		logger.Errorf(c, "函数id获取失败！")
-	}
-	log.FuncId = int64(funcId)
+	update := model.FuncRunRecord{}
+	update.EndTs = time.Now().UnixMilli()
+	update.Cost = log.EndTs - log.StartTs
 
-	log.Response = function2.Data
+	update.Response = function2.Data
 	var res resp.RunFunctionResp
 	err = json.Unmarshal(function2.Data, &res)
 	if err != nil {
-		log.Status = "fail"
-		log.Message = err.Error()
+		update.Status = "fail"
+		update.Message = err.Error()
 		response.ServerError(c, err.Error())
 		return
 	}
@@ -106,15 +115,15 @@ func (r *Functions) Run(c *gin.Context) {
 		}
 	}
 	res.MetaData["version"] = rn.Version
-	log.Status = "success"
+	update.Status = "success"
 	go func() {
 		marshal, err2 := json.Marshal(res)
 		if err2 != nil {
 			logger.Errorf(c, "<UNK>")
 		} else {
-			log.Response = marshal
+			update.Response = marshal
 		}
-		db.GetDB().Model(&model.FuncRunRecord{}).Create(&log)
+		db.GetDB().Model(&model.FuncRunRecord{}).Where("trace_id = ?", traceId).Updates(update)
 	}()
 	c.JSON(http.StatusOK, res)
 }

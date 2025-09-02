@@ -149,13 +149,11 @@ func (r *ServiceTreeRepo) Children(ctx context.Context, parentId int64) ([]*mode
 
 // Update 更新ServiceTree
 func (r *ServiceTreeRepo) Update(ctx context.Context, id int64, tree *model.ServiceTree) error {
-	logger.Debug(ctx, "开始更新ServiceTree", zap.Any("id", id))
 	return r.db.WithContext(ctx).Model(&model.ServiceTree{}).Where("id = ?", id).Updates(tree).Error
 }
 
 // Delete 删除ServiceTree
 func (r *ServiceTreeRepo) Delete(ctx context.Context, id int64) error {
-	logger.Debug(ctx, "开始删除ServiceTree", zap.Any("id", id))
 	return r.db.WithContext(ctx).Delete(&model.ServiceTree{}, id).Error
 }
 

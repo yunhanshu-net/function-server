@@ -62,6 +62,7 @@ func Init(cfg config.DBConfig) error {
 		&model.FuncRunRecord{},
 		&model.FunctionGen{},
 		&model.FuncConfig{},
+		&model.FunctionGenRetry{},
 	)
 	if err != nil {
 		return err

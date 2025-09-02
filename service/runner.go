@@ -473,12 +473,14 @@ func (s *Runner) RebuildProject(ctx context.Context, rid int64) (*coder.RebuildP
 	treeMap := make(map[string]*model.ServiceTree)
 
 	for _, tree := range trees {
-		treeMap[tree.GetPackagePath()] = &tree
+		t := tree.GetPackagePath()
+		treeMap[t] = &tree
 	}
 
 	delPath := []string{}
 	for _, tree := range trees {
-		if allMap[tree.GetPackagePath()] == nil { //平台存在，实际不存在，需要删除
+		t := tree.GetPackagePath()
+		if allMap[t] == nil { //平台存在，实际不存在，需要删除
 			delPath = append(delPath, tree.FullNamePath)
 		}
 	}
@@ -512,7 +514,29 @@ func (s *Runner) RebuildProject(ctx context.Context, rid int64) (*coder.RebuildP
 				logger.Errorf(ctx, "createFunctionWithDependencies err: %s %+v resp:%+v", err, runnerFunc, resp)
 				return nil, err
 			}
+
 		} else {
+
+			//todo 如果method变更的话新tree method
+
+			//todo 有配置变更需要更新配置
+			if api.HasConfig() {
+
+				if v.RunnerFunc == nil {
+					return nil, fmt.Errorf("func is nil")
+				}
+				runnerFunc := model.RunnerFunc{
+					Base: model.Base{
+						ID: v.RunnerFunc.ID,
+					},
+					RunnerID:  rid,
+					User:      get.User,
+					HasConfig: true,
+					Method:    api.Method,
+					Path:      strings.Trim(api.GetTreePath(), "/"),
+				}
+				funcService.processFuncConfig(ctx, &runnerFunc, api.ParamsConfig, api.ParamsData, rsp.CurrentVersion)
+			}
 			info := v.RunnerFunc.DiffWithAPIInfo(api)
 			if info != nil {
 				logger.Infof(ctx, "DiffWithAPIInfo api发生变更:%+v", info)

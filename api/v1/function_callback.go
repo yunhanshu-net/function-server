@@ -56,7 +56,7 @@ func (r *Functions) Callback(c *gin.Context) {
 		return
 	}
 
-	function2, err := r.runcher.RunFunction2(c, req)
+	function2, err := r.runcher.RunFunction3(c, req)
 	if err != nil {
 		response.ServerError(c, err.Error())
 		return
