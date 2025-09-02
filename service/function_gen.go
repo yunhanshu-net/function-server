@@ -289,6 +289,7 @@ func (s *RunnerFunc) FunctionGen(ctx context.Context, req *dto.FunctionGenReq) (
 		if codeErr != nil {
 			mysqlDb.Model(&model.FunctionGen{}).Where("id=?", fg.ID).Updates(map[string]interface{}{
 				"status":  "失败",
+				"code":    code,
 				"comment": fmt.Sprintf("代码提取失败: %v", codeErr),
 			})
 			return
