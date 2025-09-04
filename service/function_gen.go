@@ -321,7 +321,6 @@ func (s *RunnerFunc) FunctionGen(ctx context.Context, req *dto.FunctionGenReq) (
 		rsp, err := GetRuncherService().PushApis(ctx, r)
 		if err != nil {
 			logger.Errorf(ctx, "FunctionGen PushApis:%s", err.Error())
-			return
 		}
 		logger.Infof(ctx, "FunctionGen PushApis: %+v", rsp)
 
@@ -460,10 +459,11 @@ func (s *RunnerFunc) retry(ctx context.Context, fg *model.FunctionGen, originalC
 	rsp, err := GetRuncherService().PushApis(ctx, r)
 	if err != nil {
 		s.recordRetryAttempt(ctx, fg.ID, retryIndex, originalCode, errorMsg, fixedCode, false, fmt.Sprintf("重试推送API失败: %v", err), time.Since(startTime).Milliseconds())
-		return fmt.Errorf("重试推送API失败: %w", err)
-	}
+		logger.Errorf(ctx, "重试推送API失败: %+v err:%+v", rsp, err)
+	} else {
+		logger.Infof(ctx, "重试推送API成功: %+v", rsp)
 
-	logger.Infof(ctx, "重试推送API成功: %+v", rsp)
+	}
 
 	// 重新构建项目
 	_, err = NewRunner(db.GetDB()).RebuildProject(ctx, fg.RunnerID)
