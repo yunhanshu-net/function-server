@@ -8,15 +8,28 @@ import (
 	"github.com/yunhanshu-net/function-server/pkg/db"
 	pkgmiddleware "github.com/yunhanshu-net/function-server/pkg/middleware"
 	"github.com/yunhanshu-net/function-server/service"
+	"time"
 )
+
+var start time.Time
 
 // Init 初始化路由
 func Init() *gin.Engine {
+	start = time.Now()
+
 	// 设置gin模式
 	gin.SetMode(config.Get().ServerConfig.Mode)
 
 	// 创建gin引擎
 	r := gin.New()
+
+	r.GET("/health", func(c *gin.Context) {
+		c.JSON(200, gin.H{
+			"status":    "ok",
+			"timestamp": time.Now().Format(time.DateTime),
+			"uptime":    time.Since(start).String(),
+		})
+	})
 
 	// 使用中间件
 	r.Use(gin.Recovery())
