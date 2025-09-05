@@ -9,6 +9,5 @@ func WithUserInfo() gin.HandlerFunc {
 	return func(c *gin.Context) {
 		//todo 其实应该加上token的逻辑，这里为了能快速实现功能先省略
 		c.Set("user", "beiluo")
-		//c.Set("user", c.GetString("user"))
 	}
 }
