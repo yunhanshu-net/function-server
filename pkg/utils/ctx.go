@@ -37,13 +37,6 @@ func GetContextWithTraceID(c *gin.Context) context.Context {
 	return context.WithValue(context.Background(), constants.TraceID, traceID)
 }
 
-// FromGinContext 从gin.Context创建标准Context
-// 这个方法可用于将gin.Context转换为符合context.Context接口的对象
-// 同时保留traceID等关键信息
-func FromGinContext(c *gin.Context) context.Context {
-	return c.Request.Context()
-}
-
 // GinLog 提供了一组便捷的日志记录函数，直接接受gin.Context
 type GinLog struct{}
 
