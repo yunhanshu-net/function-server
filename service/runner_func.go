@@ -395,26 +395,6 @@ func (s *RunnerFunc) DeleteByIds(ctx context.Context, ids []int64, operator stri
 	//删除对应tree和对应函数
 
 	s.deleteFunctions(ctx, ids, delPaths, operator)
-
-	//db.GetDB().Model(&model.ServiceTree{}).Where("full_name_path in ?", delPaths).Updates(map[string]interface{}{
-	//	"deleted_by": operator,
-	//})
-	//db.GetDB().Delete(&model.ServiceTree{}, "full_name_path in ?", delPaths)
-	//db.GetDB().Delete(&model.RunnerFunc{}, "id in ?", ids)
-
-	//// 设置删除者
-	//if err := s.runnerFuncRepo.SetDeletedBy(ctx, id, operator); err != nil {
-	//	logger.Error(ctx, "设置函数删除者失败", err, zap.Int64("id", id))
-	//	return fmt.Errorf("设置删除者失败: %w", err)
-	//}
-
-	//// 删除函数
-	//if err := s.runnerFuncRepo.Delete(ctx, id); err != nil {
-	//	logger.Error(ctx, "删除函数失败", err, zap.Int64("id", id))
-	//	return fmt.Errorf("删除函数失败: %w", err)
-	//}
-
-	//logger.Info(ctx, "删除函数成功", zap.Int64("id", id))
 	return nil
 }
 
