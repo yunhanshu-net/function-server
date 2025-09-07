@@ -17,8 +17,8 @@ type Runner struct {
 
 	TreeID          int64  `json:"tree_id"`
 	ForkFromUser    string `json:"fork_from_user,omitempty"`
-	ForkFromVersion string `json:"fork_from_version"`
-	ForkFromID      *int64 `json:"fork_from_id"`
+	ForkFromVersion string `json:"fork_from_version,omitempty"`
+	ForkFromID      *int64 `json:"fork_from_id,omitempty"`
 
 	FullNamePath string `json:"full_name_path" gorm:"-"`
 	User         string `json:"user"`

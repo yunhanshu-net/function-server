@@ -23,6 +23,7 @@ func NewFunctions(db *gorm.DB) *Functions {
 	return &Functions{
 		runcher:         service.GetRuncherService(),
 		runner:          service.NewRunner(db),
+		runnerFunc:      service.NewRunnerFunc(db),
 		callbackService: service.NewCallbackService(db),
 	}
 }
@@ -126,4 +127,30 @@ func (r *Functions) Run(c *gin.Context) {
 		db.GetDB().Model(&model.FuncRunRecord{}).Where("trace_id = ?", traceId).Updates(update)
 	}()
 	c.JSON(http.StatusOK, res)
+}
+func (r *Functions) RunV2(c *gin.Context) {
+
+	req := &runcher.RunFunctionReq{
+		User:     c.Param("user"),
+		Method:   c.Request.Method,
+		Runner:   c.Param("runner"),
+		Router:   c.Param("router"),
+		RawQuery: c.Request.URL.RawQuery,
+	}
+
+	if c.Request.Method != http.MethodGet {
+		all, err := io.ReadAll(c.Request.Body)
+		if err != nil {
+			response.ServerError(c, err.Error())
+			return
+		}
+		req.Body = string(all)
+	}
+
+	run, err := r.runnerFunc.Run(c, req)
+	if err != nil {
+		response.ServerError(c, err.Error())
+		return
+	}
+	c.JSON(http.StatusOK, run)
 }

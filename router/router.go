@@ -1,6 +1,8 @@
 package router
 
 import (
+	"time"
+
 	"github.com/gin-gonic/gin"
 	v1 "github.com/yunhanshu-net/function-server/api/v1"
 	"github.com/yunhanshu-net/function-server/middleware"
@@ -8,7 +10,6 @@ import (
 	"github.com/yunhanshu-net/function-server/pkg/db"
 	pkgmiddleware "github.com/yunhanshu-net/function-server/pkg/middleware"
 	"github.com/yunhanshu-net/function-server/service"
-	"time"
 )
 
 var start time.Time
@@ -45,7 +46,7 @@ func Init() *gin.Engine {
 	functionV1.Use(middleware.WithUserInfo())
 	{
 		functionApi := v1.NewFunctions(db.GetDB())
-		functionV1.Any("/run/:user/:runner/*router", functionApi.Run)
+		functionV1.Any("/run/:user/:runner/*router", functionApi.RunV2)
 		functionV1.POST("/callback/:user/:runner/*router", functionApi.Callback)
 	}
 	{
@@ -126,6 +127,19 @@ func Init() *gin.Engine {
 			// 配置相关路由
 			runnerFunc.GET("/config", runnerFuncConfigAPI.GetFuncConfig)    // 获取函数配置
 			runnerFunc.PUT("/config", runnerFuncConfigAPI.UpdateFuncConfig) // 更新函数配置
+		}
+
+		// FunctionExecuteCase 相关路由
+		executeCase := apiV1.Group("/function-execute-case")
+		{
+			executeCase.POST("", v1.CreateFunctionExecuteCase)              // 创建执行用例
+			executeCase.PUT("", v1.UpdateFunctionExecuteCase)               // 更新执行用例
+			executeCase.GET("/query", v1.QueryFunctionExecuteCase)          // 查询执行用例
+			executeCase.GET("/get", v1.GetFunctionExecuteCase)              // 获取执行用例详情
+			executeCase.POST("/exec", v1.ExecFunctionExecuteCase)           // 执行用例
+			executeCase.DELETE("/batch", v1.BatchDeleteFunctionExecuteCase) // 批量删除执行用例
+			executeCase.GET("/records", v1.QueryFunctionExecuteCaseRecords) // 查询执行记录
+			executeCase.POST("/init-count", v1.InitExecCaseCount)           // 初始化执行用例计数
 		}
 	}
 

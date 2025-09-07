@@ -4,7 +4,13 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	resp "github.com/yunhanshu-net/function-go/pkg/dto/response"
+	"github.com/yunhanshu-net/function-server/pkg/dto/runcher"
+	"github.com/yunhanshu-net/function-server/pkg/x/contextx"
+	"github.com/yunhanshu-net/pkg/x/urlx"
+	"net/http"
 	"strings"
+	"time"
 
 	"github.com/pkg/errors"
 	"github.com/yunhanshu-net/function-go/pkg/dto/api"
@@ -41,6 +47,104 @@ func NewRunnerFunc(db *gorm.DB) *RunnerFunc {
 		funcConfigRepo:  repo.NewFuncConfigRepo(db),
 	}
 	return svc
+}
+
+func (s *RunnerFunc) Run(ctx context.Context, req *runcher.RunFunctionReq) (*resp.RunFunctionResp, error) {
+
+	//req := &runcher.RunFunctionReq{
+	//	User:   c.Param("user"),
+	//	Method: c.Request.Method,
+	//	Runner: c.Param("runner"),
+	//	Router: c.Param("router"),
+	//}
+
+	traceId := contextx.GetTraceID(ctx)
+	if traceId == "" {
+		return nil, fmt.Errorf("traceId is empty")
+	}
+
+	log := model.FuncRunRecord{
+		Base: model.Base{
+			CreatedBy: contextx.GetRequestUserName(ctx),
+			UpdatedBy: contextx.GetRequestUserName(ctx),
+		},
+		FuncId:  1,
+		Status:  "running",
+		TraceId: traceId,
+		Request: json.RawMessage(req.Body),
+		StartTs: time.Now().UnixMilli(),
+	}
+	funcId := contextx.GetFunctionID(ctx)
+
+	log.FuncId = int64(funcId)
+	if req.Method == http.MethodGet {
+		//req.RawQuery = c.Request.URL.RawQuery
+		toMap := urlx.QueryToMap(req.RawQuery)
+		marshal, err := json.Marshal(toMap)
+		if err != nil {
+			//response.ParamError(c, fmt.Sprintf("json.Marshal 失败：%s", err.Error()))
+			return nil, err
+		}
+		log.Request = marshal
+	} else {
+
+		//b, err := io.ReadAll(c.Request.Body)
+		//if err != nil {
+		//	panic(err)
+		//}
+		//defer c.Request.Body.Close()
+		//req.Body = string(b)
+		log.Request = json.RawMessage(req.Body)
+	}
+	rn, err := s.runnerRepo.GetByUserAndName(ctx, req.User, req.Runner)
+	if err != nil {
+		//response.ParamError(c, fmt.Sprintf("获取runner失败：%s", err.Error()))
+		return nil, err
+	}
+	req.Version = rn.Version
+	db.GetDB().Model(&model.FuncRunRecord{}).Create(&log)
+
+	function2, err := GetRuncherService().RunFunction3(ctx, req)
+	if err != nil {
+		//response.ServerError(c, err.Error())
+		return nil, err
+	}
+
+	update := model.FuncRunRecord{}
+	update.EndTs = time.Now().UnixMilli()
+	update.Cost = log.EndTs - log.StartTs
+
+	update.Response = function2.Data
+	var res resp.RunFunctionResp
+	err = json.Unmarshal(function2.Data, &res)
+	if err != nil {
+		update.Status = "fail"
+		update.Message = err.Error()
+		//response.ServerError(c, err.Error())
+		return &res, err
+	}
+	if res.MetaData == nil {
+		res.MetaData = make(map[string]interface{})
+	}
+	for k, v := range function2.Header {
+		if k != "code" {
+			if len(v) > 0 {
+				res.MetaData[k] = v[0]
+			}
+		}
+	}
+	res.MetaData["version"] = rn.Version
+	update.Status = "success"
+	go func() {
+		marshal, err2 := json.Marshal(res)
+		if err2 != nil {
+			logger.Errorf(ctx, "<UNK>")
+		} else {
+			update.Response = marshal
+		}
+		db.GetDB().Model(&model.FuncRunRecord{}).Where("trace_id = ?", traceId).Updates(update)
+	}()
+	return &res, nil
 }
 
 // Create 创建函数
@@ -142,8 +246,10 @@ func (s *RunnerFunc) Get(ctx context.Context, id int64) (*model.RunnerFunc, erro
 	}
 	trim := strings.Trim(get.Path, "/")
 	split := strings.Split(trim, "/") // a/b/c/d
-	split = split[2:]
-	get.Router = strings.Join(split, "/")
+	router := split[2:]
+	runner := split[1:2]
+	get.Router = strings.Join(router, "/")
+	get.RunnerName = runner[0]
 	return get, nil
 
 }

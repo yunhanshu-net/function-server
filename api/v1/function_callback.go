@@ -26,6 +26,7 @@ type CallbackRequest struct {
 type Functions struct {
 	runcher         service.RuncherService
 	runner          *service.Runner
+	runnerFunc      *service.RunnerFunc
 	callbackService *service.CallbackService
 }
 

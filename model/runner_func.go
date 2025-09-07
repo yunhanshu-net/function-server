@@ -40,6 +40,29 @@ type RunnerFunc struct {
 	Router          string          `json:"router" gorm:"-"`
 	Code            string          `json:"-" gorm:"-"`
 	HasConfig       bool            `json:"has_config" gorm:"column:has_config;comment:是否存在配置"` // 是否存在配置
+
+	RunnerName    string `json:"runner_name" gorm:"-"`
+	ExecCaseCount int    `json:"exec_case_count" gorm:"column:exec_case_count"`
+}
+
+func (r *RunnerFunc) GetRouter() string {
+	trim := strings.Trim(r.Path, "/")
+	split := strings.Split(trim, "/") // a/b/c/d
+	router := split[2:]
+	runner := split[1:2]
+	r.Router = strings.Join(router, "/")
+	r.RunnerName = runner[0]
+	return r.Router
+}
+
+func (r *RunnerFunc) GetRunnerName() string {
+	trim := strings.Trim(r.Path, "/")
+	split := strings.Split(trim, "/") // a/b/c/d
+	router := split[2:]
+	runner := split[1:2]
+	r.Router = strings.Join(router, "/")
+	r.RunnerName = runner[0]
+	return r.RunnerName
 }
 
 func (RunnerFunc) TableName() string {
