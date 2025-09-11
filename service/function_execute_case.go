@@ -265,6 +265,7 @@ func (r *FunctionExecuteCase) Update(ctx context.Context, req dto.UpdateFunction
 		updateData["request"] = req.Request
 	}
 	updateData["can_background"] = req.CanBackground
+	updateData["auto_run"] = req.AutoRun
 	updateData["use_latest_version"] = req.UseLatestVersion
 
 	// 执行更新

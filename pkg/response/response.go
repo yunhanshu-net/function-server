@@ -99,3 +99,8 @@ func NotFound(c *gin.Context, msg string) {
 func ServerError(c *gin.Context, msg string) {
 	Fail(c, CodeServerError, msg)
 }
+
+// Error 通用错误响应
+func Error(c *gin.Context, msg string) {
+	Fail(c, CodeServerError, msg)
+}

@@ -141,6 +141,18 @@ func Init() *gin.Engine {
 			executeCase.GET("/records", v1.QueryFunctionExecuteCaseRecords) // 查询执行记录
 			executeCase.POST("/init-count", v1.InitExecCaseCount)           // 初始化执行用例计数
 		}
+
+		// Workflow 相关路由
+		workflowAPI := v1.NewWorkflowAPI(service.NewWorkflowService(db.GetDB()))
+		workflow := apiV1.Group("/workflow")
+		{
+			workflow.POST("", workflowAPI.CreateWorkflow)           // 创建工作流
+			workflow.POST("/execute", workflowAPI.ExecuteWorkflow)  // 执行工作流
+			workflow.POST("/status", workflowAPI.GetWorkflowStatus) // 获取工作流状态
+			workflow.POST("/stop", workflowAPI.StopWorkflow)        // 停止工作流
+			workflow.GET("/detail", workflowAPI.GetWorkflowDetail)  // 获取工作流详情
+			workflow.GET("/list", workflowAPI.ListWorkflow)         // 获取工作流列表
+		}
 	}
 
 	return r

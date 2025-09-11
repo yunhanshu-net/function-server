@@ -17,6 +17,7 @@ type FunctionExecuteCase struct {
 
 	Request       json.RawMessage `json:"request" gorm:"column:request;type:json"`
 	CanBackground bool            `json:"can_background" gorm:"column:can_background"` //是否支持后台执行
+	AutoRun       bool            `json:"auto_run" gorm:"column:auto_run"`             //是否自动运行
 	ExecCount     int             `json:"exec_count" gorm:"column:exec_count"`
 
 	LastUsedAt       *Time  `json:"last_used_at" gorm:"column:last_used_at"`             // 最后使用时间

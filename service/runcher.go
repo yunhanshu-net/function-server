@@ -4,12 +4,13 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"sync"
+	"time"
+
 	"github.com/yunhanshu-net/function-runtime/pkg/dto/coder"
 	"github.com/yunhanshu-net/function-server/pkg/dto/runcher"
 	"github.com/yunhanshu-net/pkg/constants"
 	"github.com/yunhanshu-net/pkg/x/jsonx"
-	"sync"
-	"time"
 
 	"github.com/nats-io/nats.go"
 	"github.com/yunhanshu-net/function-server/model"
@@ -68,7 +69,7 @@ func (s *runcherService) PublishFunctionRuntimeMsg(msg *nats.Msg) error {
 	if err != nil {
 		return err
 	}
-	fmt.Printf("Function Runtime Publish Success msg:%s\n", msg)
+	fmt.Printf("Function Runtime Publish Success msg:%+v\n", msg)
 	return nil
 }
 

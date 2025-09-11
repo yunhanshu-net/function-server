@@ -2,6 +2,7 @@ package dto
 
 import (
 	"encoding/json"
+
 	"github.com/yunhanshu-net/pkg/query"
 
 	"github.com/yunhanshu-net/function-server/model"
@@ -23,6 +24,7 @@ type UpdateFunctionExecuteCaseReq struct {
 	Description      string          `json:"description"`
 	Request          json.RawMessage `json:"request"`
 	CanBackground    bool            `json:"can_background"`
+	AutoRun          bool            `json:"auto_run"` //是否自动运行
 	UseLatestVersion bool            `json:"use_latest_version"`
 }
 

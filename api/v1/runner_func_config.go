@@ -2,6 +2,7 @@ package v1
 
 import (
 	"encoding/json"
+
 	"github.com/gin-gonic/gin"
 	"github.com/yunhanshu-net/function-server/pkg/dto"
 	"github.com/yunhanshu-net/function-server/pkg/response"
@@ -59,7 +60,7 @@ func (r *RunnerFuncConfig) GetFuncConfig(c *gin.Context) {
 	var configStruct interface{}
 	if funcConfig.ConfigStruct != nil {
 		if err := json.Unmarshal(funcConfig.ConfigStruct, &configStruct); err != nil {
-			logger.Errorf(c, "解析配置结构体失败", err, zap.Int64("func_id", req.FuncID))
+			logger.Errorf(c, "解析配置结构体失败: %v, func_id: %d", err, req.FuncID)
 		}
 	}
 
@@ -67,7 +68,7 @@ func (r *RunnerFuncConfig) GetFuncConfig(c *gin.Context) {
 	var configData interface{}
 	if funcConfig.ConfigData != nil {
 		if err := json.Unmarshal(funcConfig.ConfigData, &configData); err != nil {
-			logger.Errorf(c, "解析配置数据失败", err, zap.Int64("func_id", req.FuncID))
+			logger.Errorf(c, "解析配置数据失败: %v, func_id: %d", err, req.FuncID)
 		}
 	}
 
@@ -122,4 +123,3 @@ func (r *RunnerFuncConfig) UpdateFuncConfig(c *gin.Context) {
 
 	response.Success(c, resp)
 }
- 

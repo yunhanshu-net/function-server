@@ -2,8 +2,9 @@ package db
 
 import (
 	"fmt"
-	"github.com/yunhanshu-net/function-server/model"
 	"time"
+
+	"github.com/yunhanshu-net/function-server/model"
 
 	"github.com/yunhanshu-net/function-server/pkg/config"
 	"gorm.io/driver/mysql"
@@ -65,6 +66,8 @@ func Init(cfg config.DBConfig) error {
 		&model.FunctionGenRetry{},
 		&model.FunctionExecuteCase{},
 		&model.FunctionExecuteCaseRecord{},
+		&model.Workflow{},
+		&model.WorkflowExecution{},
 	)
 	if err != nil {
 		return err
