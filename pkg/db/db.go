@@ -68,6 +68,11 @@ func Init(cfg config.DBConfig) error {
 		&model.FunctionExecuteCaseRecord{},
 		&model.Workflow{},
 		&model.WorkflowExecution{},
+		&model.ChatSession{},
+		&model.ChatMessage{},
+		&model.KnowledgeBase{},
+		&model.KnowledgeDocument{},
+		&model.KnowledgeChunk{},
 	)
 	if err != nil {
 		return err

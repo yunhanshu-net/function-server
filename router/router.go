@@ -153,6 +153,32 @@ func Init() *gin.Engine {
 			workflow.GET("/detail", workflowAPI.GetWorkflowDetail)  // 获取工作流详情
 			workflow.GET("/list", workflowAPI.ListWorkflow)         // 获取工作流列表
 		}
+
+		// Chat 相关路由
+		chatAPI := v1.NewChatAPI(service.NewChatService(db.GetDB()))
+		chat := apiV1.Group("/chat")
+		{
+			chat.POST("", chatAPI.SendMessage)                     // 发送消息
+			chat.POST("/stream", chatAPI.SendMessageStream)        // 发送流式消息
+			chat.GET("/sessions", chatAPI.GetSessions)             // 获取会话列表
+			chat.GET("/messages", chatAPI.GetMessages)             // 获取消息历史
+			chat.PUT("/session/title", chatAPI.UpdateSessionTitle) // 更新会话标题
+		}
+
+		// Knowledge Base 相关路由
+		knowledgeBaseAPI := v1.NewKnowledgeBaseAPI(service.NewKnowledgeBaseService(db.GetDB()))
+		knowledgeBase := apiV1.Group("/knowledge-base")
+		{
+			knowledgeBase.POST("", knowledgeBaseAPI.CreateKnowledgeBase)      // 创建知识库
+			knowledgeBase.PUT("", knowledgeBaseAPI.UpdateKnowledgeBase)       // 更新知识库
+			knowledgeBase.DELETE("", knowledgeBaseAPI.DeleteKnowledgeBase)    // 删除知识库
+			knowledgeBase.GET("/detail", knowledgeBaseAPI.GetKnowledgeBase)   // 获取知识库详情
+			knowledgeBase.GET("/list", knowledgeBaseAPI.ListKnowledgeBases)   // 获取知识库列表
+			knowledgeBase.POST("/documents", knowledgeBaseAPI.UploadDocument) // 上传文档
+			knowledgeBase.PUT("/documents", knowledgeBaseAPI.UpdateDocument)  // 更新文档
+			knowledgeBase.GET("/documents", knowledgeBaseAPI.ListDocuments)   // 获取文档列表
+			knowledgeBase.POST("/search", knowledgeBaseAPI.SearchKnowledge)   // 搜索知识库
+		}
 	}
 
 	return r

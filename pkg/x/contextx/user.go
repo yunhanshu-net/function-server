@@ -2,17 +2,28 @@ package contextx
 
 import (
 	"context"
+	"strconv"
+
 	"github.com/gin-gonic/gin"
 	"github.com/yunhanshu-net/pkg/constants"
-	"strconv"
 )
 
 func GetRequestUserName(ctx context.Context) string {
-	v, ok := ctx.(*gin.Context)
-	if ok {
+	// 首先尝试从gin.Context获取
+	if v, ok := ctx.(*gin.Context); ok {
 		return v.GetString("user")
 	}
-	return ""
+
+	// 然后尝试从context.Value获取
+	if user, ok := ctx.Value("user").(string); ok && user != "" {
+		return user
+	}
+
+	return "beiluo"
+}
+
+func WithRequestUserName(ctx context.Context, username string) context.Context {
+	return context.WithValue(ctx, "user", username)
 }
 func GetTraceID(ctx context.Context) string {
 	v, ok := ctx.(*gin.Context)

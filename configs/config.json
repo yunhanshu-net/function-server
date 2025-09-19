@@ -2,8 +2,8 @@
   "server": {
     "port": 8080,
     "mode": "debug",
-    "read_timeout": 60,
-    "write_timeout": 60
+    "read_timeout": 600,
+    "write_timeout": 600
   },
   "database": {
     "type": "mysql",
@@ -34,5 +34,8 @@
     "secret_key": "FjfIpqUevEcVx9bQxdgiuX9Di-CUOrKFkR88CZAj",
     "domain": "http://cdn.geeleo.com",
     "use_https": false
+  },
+  "glm": {
+    "api_key": "your_glm_api_key_here"
   }
 } 

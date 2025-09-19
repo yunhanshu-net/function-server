@@ -72,8 +72,10 @@ func main() {
 	// 启动服务器
 	addr := fmt.Sprintf(":%d", cfg.ServerConfig.Port)
 	server := &http.Server{
-		Addr:    addr,
-		Handler: r,
+		Addr:         addr,
+		Handler:      r,
+		ReadTimeout:  time.Duration(cfg.ServerConfig.ReadTimeout) * time.Second,
+		WriteTimeout: time.Duration(cfg.ServerConfig.WriteTimeout) * time.Second,
 	}
 
 	// 在一个单独的goroutine中启动服务器

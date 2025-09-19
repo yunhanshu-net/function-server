@@ -14,6 +14,7 @@ type Config struct {
 	LogConfig     LogConfig     `json:"log"`
 	RuncherConfig RuncherConfig `json:"runcher"`
 	QiNiuConfig   QiNiuConfig   `json:"qiniu"`
+	GLMConfig     GLMConfig     `json:"glm"`
 }
 
 // ServerConfig 服务器配置
@@ -60,6 +61,11 @@ type QiNiuConfig struct {
 	SecretKey string `json:"secret_key"` // SecretKey
 	Domain    string `json:"domain"`     // CDN域名
 	UseHTTPS  bool   `json:"use_https"`  // 是否使用HTTPS
+}
+
+// GLMConfig GLM API配置
+type GLMConfig struct {
+	APIKey string `json:"api_key"` // GLM API Key
 }
 
 var config Config
