@@ -3,7 +3,6 @@ package service
 import (
 	"context"
 	"fmt"
-	"os"
 	"strings"
 	"time"
 
@@ -11,6 +10,7 @@ import (
 	"github.com/pkg/errors"
 	"github.com/yunhanshu-net/function-go/pkg/llms"
 	"github.com/yunhanshu-net/function-server/model"
+	"github.com/yunhanshu-net/function-server/pkg/config"
 	"github.com/yunhanshu-net/function-server/pkg/dto"
 	"github.com/yunhanshu-net/function-server/pkg/dto/base"
 	"github.com/yunhanshu-net/function-server/pkg/utils"
@@ -33,12 +33,13 @@ func NewChatService(db *gorm.DB) *ChatService {
 	// 创建带长超时配置的GLM客户端
 	options := llms.DefaultClientOptions() // 使用默认的1200秒超时配置
 
-	// 检查环境变量中的API Key
-	apiKey := os.Getenv("GLM_API_KEY")
+	// 从配置文件获取API Key
+	cfg := config.Get()
+	apiKey := cfg.GLMConfig.APIKey
 	if apiKey == "" {
-		logger.Warnf(context.Background(), "[ChatService] GLM_API_KEY环境变量未设置，将使用空字符串")
+		logger.Warnf(context.Background(), "[ChatService] GLM API Key未配置，将使用空字符串")
 	} else {
-		logger.Infof(context.Background(), "[ChatService] 找到GLM_API_KEY环境变量，长度: %d", len(apiKey))
+		logger.Infof(context.Background(), "[ChatService] 从配置文件获取GLM API Key，长度: %d", len(apiKey))
 	}
 
 	glmClient := llms.NewGLMClientWithOptions(apiKey, options)

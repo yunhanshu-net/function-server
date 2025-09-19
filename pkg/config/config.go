@@ -127,6 +127,9 @@ func Init() error {
 				Domain:    "https://your-domain.com",
 				UseHTTPS:  true,
 			},
+			GLMConfig: GLMConfig{
+				APIKey: "your-glm-api-key-here",
+			},
 		}
 
 		// 创建配置文件
