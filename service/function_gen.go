@@ -210,7 +210,7 @@ func genCode(ctx context.Context, agentID int, question string, context string) 
 
 	// 调用LLM Agent接口
 	var resp LLMAgentChatResp
-	post, err := httpx.Post("http://localhost:8080/function/run/beiluo/demo6/ai/llm/llm_agent_chat/").
+	post, err := httpx.Post("http://localhost:8080/function/run/beiluo/demo6/ai/llm/llm_agent_chat").
 		Header("Content-Type", "application/json").
 		Header("Accept", "application/json, text/plain, */*").
 		Timeout(1000 * time.Second).
