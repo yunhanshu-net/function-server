@@ -1,11 +1,11 @@
 package service
 
 import (
-	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
-	"io"
+	"github.com/yunhanshu-net/function-server/pkg/dto/runcher"
+	"github.com/yunhanshu-net/pkg/x/jsonx"
 	"net/http"
 	"strings"
 	"time"
@@ -98,8 +98,8 @@ type FunctionGen struct {
 }
 
 // GenCode 调用LLM Agent接口生成代码
-func (fg *FunctionGen) GenCode(ctx context.Context, question string) (*LLMAgentChatResp, error) {
-	return genCode(ctx, 1, question, "")
+func (s *RunnerFunc) GenCode(ctx context.Context, question string) (*LLMAgentChatResp, error) {
+	return s.genCode(ctx, 1, question, "")
 }
 
 // LLMAgentChatReq LLM Agent聊天请求参数
@@ -198,7 +198,7 @@ func (r *LLMAgentChatResp) DecodeCode() (string, error) {
 //}
 
 // genCode 调用LLM Agent接口生成代码（私有方法）
-func genCode(ctx context.Context, agentID int, question string, context string) (*LLMAgentChatResp, error) {
+func (s *RunnerFunc) genCode(ctx context.Context, agentID int, question string, context string) (*LLMAgentChatResp, error) {
 	if ctx.Err() != nil {
 		return nil, ctx.Err()
 	}
@@ -218,57 +218,73 @@ func genCode(ctx context.Context, agentID int, question string, context string) 
 		return nil, fmt.Errorf("序列化请求参数失败: %w", err)
 	}
 
-	// 创建HTTP请求
-	httpReq, err := http.NewRequestWithContext(ctx, "POST", "http://localhost:8080/function/run/beiluo/demo6/ai/llm/llm_agent_chat", bytes.NewBuffer(reqBody))
-	if err != nil {
-		logger.Errorf(ctx, "创建HTTP请求失败: %v", err)
-		return nil, fmt.Errorf("创建HTTP请求失败: %w", err)
+	rr := &runcher.RunFunctionReq{
+		User:   "beiluo",
+		Method: http.MethodPost,
+		Runner: "demo6",
+		Router: "ai/llm/llm_agent_chat",
+		Body:   string(reqBody),
 	}
-
-	// 设置请求头
-	httpReq.Header.Set("Content-Type", "application/json")
-	httpReq.Header.Set("Accept", "application/json, text/plain, */*")
-
-	// 创建HTTP客户端，设置超时
-	client := &http.Client{
-		Timeout: 1000 * time.Second,
-	}
-
-	// 发送请求
-	httpResp, err := client.Do(httpReq)
-	if err != nil {
-		logger.Errorf(ctx, "调用LLM Agent接口失败: %v", err)
-		return nil, fmt.Errorf("调用LLM Agent接口失败: %w", err)
-	}
-	defer httpResp.Body.Close()
-
-	// 读取响应体
-	respBody, err := io.ReadAll(httpResp.Body)
-	if err != nil {
-		logger.Errorf(ctx, "读取响应体失败: %v", err)
-		return nil, fmt.Errorf("读取响应体失败: %w", err)
-	}
-
-	// 检查HTTP状态码
-	if httpResp.StatusCode != 200 {
-		logger.Errorf(ctx, "LLM Agent接口返回错误状态码: %d, 响应: %s", httpResp.StatusCode, string(respBody))
-		return nil, fmt.Errorf("LLM Agent接口返回错误状态码: %d", httpResp.StatusCode)
-	}
-
-	// 解析响应
 	var resp LLMAgentChatResp
-	if err := json.Unmarshal(respBody, &resp); err != nil {
-		logger.Errorf(ctx, "解析响应失败: %v, 响应内容: %s", err, string(respBody))
-		return nil, fmt.Errorf("解析响应失败: %w", err)
-	}
 
-	if resp.Code != 0 {
-		logger.Errorf(ctx, "LLM Agent业务错误: %s", resp.Msg)
-		return nil, fmt.Errorf("LLM Agent业务错误: %s", resp.Msg)
+	run, err := s.Run(ctx, rr)
+	err = jsonx.Convert(run, &resp)
+	if err != nil {
+		return nil, err
 	}
-
-	logger.Infof(ctx, "LLM Agent调用成功，响应时间: %s, 使用Token: %d", resp.MetaData.Cost, resp.Data.TokensUsed)
 	return &resp, nil
+
+	//// 创建HTTP请求
+	//httpReq, err := http.NewRequestWithContext(ctx, "POST", "http://localhost:8080/function/run/beiluo/demo6/ai/llm/llm_agent_chat", bytes.NewBuffer(reqBody))
+	//if err != nil {
+	//	logger.Errorf(ctx, "创建HTTP请求失败: %v", err)
+	//	return nil, fmt.Errorf("创建HTTP请求失败: %w", err)
+	//}
+	//
+	//// 设置请求头
+	//httpReq.Header.Set("Content-Type", "application/json")
+	//httpReq.Header.Set("Accept", "application/json, text/plain, */*")
+	//
+	//// 创建HTTP客户端，设置超时
+	//client := &http.Client{
+	//	Timeout: 1000 * time.Second,
+	//}
+	//
+	//// 发送请求
+	//httpResp, err := client.Do(httpReq)
+	//if err != nil {
+	//	logger.Errorf(ctx, "调用LLM Agent接口失败: %v", err)
+	//	return nil, fmt.Errorf("调用LLM Agent接口失败: %w", err)
+	//}
+	//defer httpResp.Body.Close()
+	//
+	//// 读取响应体
+	//respBody, err := io.ReadAll(httpResp.Body)
+	//if err != nil {
+	//	logger.Errorf(ctx, "读取响应体失败: %v", err)
+	//	return nil, fmt.Errorf("读取响应体失败: %w", err)
+	//}
+	//
+	//// 检查HTTP状态码
+	//if httpResp.StatusCode != 200 {
+	//	logger.Errorf(ctx, "LLM Agent接口返回错误状态码: %d, 响应: %s", httpResp.StatusCode, string(respBody))
+	//	return nil, fmt.Errorf("LLM Agent接口返回错误状态码: %d", httpResp.StatusCode)
+	//}
+	//
+	//// 解析响应
+	//var resp LLMAgentChatResp
+	//if err := json.Unmarshal(respBody, &resp); err != nil {
+	//	logger.Errorf(ctx, "解析响应失败: %v, 响应内容: %s", err, string(respBody))
+	//	return nil, fmt.Errorf("解析响应失败: %w", err)
+	//}
+	//
+	//if resp.Code != 0 {
+	//	logger.Errorf(ctx, "LLM Agent业务错误: %s", resp.Msg)
+	//	return nil, fmt.Errorf("LLM Agent业务错误: %s", resp.Msg)
+	//}
+	//
+	//logger.Infof(ctx, "LLM Agent调用成功，响应时间: %s, 使用Token: %d", resp.MetaData.Cost, resp.Data.TokensUsed)
+	//return &resp, nil
 }
 
 func (s *RunnerFunc) FunctionGen(ctx context.Context, req *dto.FunctionGenReq) (*model.FunctionGen, error) {
@@ -309,8 +325,8 @@ func (s *RunnerFunc) FunctionGen(ctx context.Context, req *dto.FunctionGenReq) (
 	}
 	go func() {
 		now := time.Now()
-		funcGen := &FunctionGen{}
-		resp, err := funcGen.GenCode(ctx, req.Message+"\n"+ss)
+
+		resp, err := s.GenCode(ctx, req.Message+"\n"+ss)
 		if err != nil {
 			mysqlDb.Where("id=?", fg.ID).Updates(map[string]interface{}{
 				"status":  "失败",
@@ -446,8 +462,8 @@ func (s *RunnerFunc) retry(ctx context.Context, fg *model.FunctionGen, originalC
 只返回修复后的完整代码，不要额外的解释或格式。`, originalCode, errorMsg, getTree.Name)
 
 	// 调用LLM进行代码修复
-	funcGen := &FunctionGen{}
-	resp, err := funcGen.GenCode(ctx, retryPrompt)
+	//funcGen := &FunctionGen{}
+	resp, err := s.GenCode(ctx, retryPrompt)
 	if err != nil {
 		// 记录重试失败
 		s.recordRetryAttempt(ctx, fg.ID, retryIndex, originalCode, errorMsg, "", false, fmt.Sprintf("重试调用LLM失败: %v", err), time.Since(startTime).Milliseconds())
