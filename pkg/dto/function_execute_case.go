@@ -29,12 +29,12 @@ type UpdateFunctionExecuteCaseReq struct {
 }
 
 type QueryFunctionExecuteCaseReq struct {
-	query.PageInfoReq
+	query.SearchFilterPageReq
 	// 保留一些特殊字段，其他通过PageInfoReq的查询条件处理
 }
 
 type QueryFunctionExecuteCaseRecordReq struct {
-	query.PageInfoReq
+	query.SearchFilterPageReq
 	// 保留一些特殊字段，其他通过PageInfoReq的查询条件处理
 }
 

@@ -138,7 +138,7 @@ func (s *RunnerFunc) Run(ctx context.Context, req *runcher.RunFunctionReq) (*res
 	go func() {
 		marshal, err2 := json.Marshal(res)
 		if err2 != nil {
-			logger.Errorf(ctx, "<UNK>")
+			logger.Errorf(ctx, err2.Error())
 		} else {
 			update.Response = marshal
 		}

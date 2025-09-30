@@ -213,7 +213,7 @@ func (s *runcherService) RunFunction2(ctx context.Context, req *runcher.RunFunct
 	resp, err := s.nc.RequestMsg(msg, time.Second*1000)
 	if err != nil {
 		logger.Error(ctx, "执行Runner函数失败", err)
-		return nil, fmt.Errorf("执行Runner函数失败: %w", err)
+		return nil, err
 	}
 
 	// 解析响应码
@@ -221,7 +221,7 @@ func (s *runcherService) RunFunction2(ctx context.Context, req *runcher.RunFunct
 	if code != "0" {
 		errMsg := resp.Header.Get("msg")
 		logger.Error(ctx, "Runner函数执行返回错误", nil, zap.String("errMsg", errMsg))
-		return nil, fmt.Errorf("runner函数执行错误: %s", errMsg)
+		return nil, err
 	}
 
 	return resp, nil
@@ -283,7 +283,7 @@ func (s *runcherService) RunFunction3(ctx context.Context, req *runcher.RunFunct
 		if code != "0" {
 			errMsg := resp.Header.Get("msg")
 			logger.Error(ctx, "Runner函数执行返回错误", nil, zap.String("errMsg", errMsg))
-			return nil, fmt.Errorf("runner函数执行错误: %s", errMsg)
+			return nil, fmt.Errorf(errMsg)
 		}
 		return resp, nil
 	}
@@ -349,7 +349,7 @@ func (s *runcherService) DeleteProject(ctx context.Context, req *coder.DeletePro
 	if code != "0" {
 		errMsg := resp.Header.Get("msg")
 		logger.Error(ctx, "Runner函数执行返回错误", nil, zap.String("errMsg", errMsg))
-		return nil, fmt.Errorf("runner函数执行错误: %s", errMsg)
+		return nil, err
 	}
 	rsp = &coder.DeleteProjectResp{}
 	err = json.Unmarshal(resp.Data, &rsp)

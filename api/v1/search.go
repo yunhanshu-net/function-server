@@ -49,7 +49,7 @@ func (api *ServiceTreeAPI) Search(c *gin.Context) {
 	}
 
 	// 使用AutoPaginateTable处理分页和通用查询条件（eq, like, in等）
-	res, err := query.AutoPaginateTable(c, baseDB, &model.ServiceTree{}, &list, &r.PageInfoReq)
+	res, err := query.AutoPaginateTable(c, baseDB, &model.ServiceTree{}, &list, &r.SearchFilterPageReq)
 	if err != nil {
 		response.ServerError(c, err.Error())
 		return

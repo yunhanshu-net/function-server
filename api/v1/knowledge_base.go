@@ -228,6 +228,35 @@ func (api *KnowledgeBaseAPI) UpdateDocument(c *gin.Context) {
 	response.Success(c, resp)
 }
 
+// DeleteDocument 删除文档
+// @Summary 删除文档
+// @Description 删除知识库中的指定文档
+// @Tags 知识库管理
+// @Accept json
+// @Produce json
+// @Param doc_id query string true "文档ID"
+// @Success 200 {object} response.Response "成功"
+// @Failure 400 {object} response.Response "参数错误"
+// @Failure 500 {object} response.Response "服务器错误"
+// @Router /api/v1/knowledge-base/documents [delete]
+func (api *KnowledgeBaseAPI) DeleteDocument(c *gin.Context) {
+	var req dto.KnowledgeDocumentDeleteReq
+	if err := c.ShouldBindQuery(&req); err != nil {
+		response.ParamError(c, err.Error())
+		return
+	}
+
+	ctx := context.Background()
+	err := api.knowledgeBaseService.DeleteDocument(ctx, &req)
+	if err != nil {
+		logger.Errorf(ctx, "[KnowledgeBase] 删除文档失败：根因：%s 完整错误跟踪:\n%+v\n", errors.Cause(err), err)
+		response.Error(c, err.Error())
+		return
+	}
+
+	response.Success(c, nil)
+}
+
 // ListDocuments 获取文档列表
 // @Summary 获取文档列表
 // @Description 获取知识库中的文档列表

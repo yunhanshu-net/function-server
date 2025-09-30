@@ -94,3 +94,11 @@ func (r *KnowledgeBaseRepo) UpdateDocumentCount(ctx context.Context, kbKey, user
 		Where("kb_key = ? AND user = ?", kbKey, user).
 		Update("document_count", count).Error
 }
+
+// UpdateContentHash 更新知识库内容哈希值
+func (r *KnowledgeBaseRepo) UpdateContentHash(ctx context.Context, kbKey, user, contentHash string) error {
+	logger.Debugf(ctx, "更新知识库内容哈希值，kb_key: %s, hash: %s", kbKey, contentHash)
+	return r.db.Model(&model.KnowledgeBase{}).
+		Where("kb_key = ? AND user = ?", kbKey, user).
+		Update("content_hash", contentHash).Error
+}

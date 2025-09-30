@@ -62,19 +62,20 @@ func (s *ChatService) SendMessage(ctx context.Context, req *dto.ChatReq) (*dto.C
 	}
 
 	// 获取或创建会话
-	session, err := s.getOrCreateSession(ctx, req.SessionID, user, req.Model, req.Router)
+	session, err := s.getOrCreateSession(ctx, req.SessionID, user, req.Model, req.Router, req.KnowledgeKey)
 	if err != nil {
 		return nil, errors.Wrap(err, "获取或创建会话失败")
 	}
 
 	// 保存用户消息
 	userMessage := &model.ChatMessage{
-		SessionID: session.SessionID,
-		Role:      "user",
-		Content:   req.Message,
-		Model:     req.Model,
-		Router:    req.Router,
-		User:      user,
+		SessionID:    session.SessionID,
+		Role:         "user",
+		Content:      req.Message,
+		Model:        req.Model,
+		Router:       req.Router,
+		KnowledgeKey: req.KnowledgeKey,
+		User:         user,
 	}
 	if err := s.messageRepo.Create(ctx, userMessage); err != nil {
 		return nil, errors.Wrap(err, "保存用户消息失败")
@@ -98,10 +99,10 @@ func (s *ChatService) SendMessage(ctx context.Context, req *dto.ChatReq) (*dto.C
 		return nil, errors.Wrap(err, "获取历史消息失败")
 	}
 
-	// 如果指定了知识库，检索相关知识
+	// 智能知识库检索：第一次问话检索知识库，后续问话检查历史记录避免重复加载
 	var knowledgeContext string
 	if req.KnowledgeKey != "" {
-		knowledgeContext = s.retrieveKnowledge(ctx, req.KnowledgeKey, req.Message, user)
+		knowledgeContext = s.retrieveKnowledgeWithHistory(ctx, req.KnowledgeKey, req.Message, user, session.SessionID)
 	}
 
 	// 调用GLM
@@ -132,12 +133,13 @@ func (s *ChatService) SendMessage(ctx context.Context, req *dto.ChatReq) (*dto.C
 
 	// 保存AI回复
 	aiMessage := &model.ChatMessage{
-		SessionID: session.SessionID,
-		Role:      "assistant",
-		Content:   llmResp.Content,
-		Model:     req.Model,
-		Router:    req.Router,
-		User:      user,
+		SessionID:    session.SessionID,
+		Role:         "assistant",
+		Content:      llmResp.Content,
+		Model:        req.Model,
+		Router:       req.Router,
+		KnowledgeKey: req.KnowledgeKey,
+		User:         user,
 	}
 	// 处理usage字段
 	var promptTokens, completionTokens, totalTokens int
@@ -171,34 +173,23 @@ func (s *ChatService) SendMessageStream(ctx context.Context, req *dto.ChatReq) (
 	}
 
 	// 获取或创建会话
-	session, err := s.getOrCreateSession(ctx, req.SessionID, user, req.Model, req.Router)
+	session, err := s.getOrCreateSession(ctx, req.SessionID, user, req.Model, req.Router, req.KnowledgeKey)
 	if err != nil {
 		return nil, errors.Wrap(err, "获取或创建会话失败")
 	}
 
 	// 保存用户消息
 	userMessage := &model.ChatMessage{
-		SessionID: session.SessionID,
-		Role:      "user",
-		Content:   req.Message,
-		Model:     req.Model,
-		Router:    req.Router,
-		User:      user,
+		SessionID:    session.SessionID,
+		Role:         "user",
+		Content:      req.Message,
+		Model:        req.Model,
+		Router:       req.Router,
+		KnowledgeKey: req.KnowledgeKey,
+		User:         user,
 	}
 	if err := s.messageRepo.Create(ctx, userMessage); err != nil {
 		return nil, errors.Wrap(err, "保存用户消息失败")
-	}
-
-	// 如果是新会话且只有一条用户消息，生成智能标题
-	if session.MessageCount == 0 {
-		newTitle := s.generateSessionTitleFromMessage(ctx, req.Message)
-		if newTitle != session.Title {
-			if err := s.sessionRepo.UpdateTitle(ctx, session.SessionID, user, newTitle); err != nil {
-				logger.Warnf(ctx, "更新会话标题失败: %v", err)
-			} else {
-				session.Title = newTitle
-			}
-		}
 	}
 
 	// 获取历史消息用于LLM
@@ -207,10 +198,10 @@ func (s *ChatService) SendMessageStream(ctx context.Context, req *dto.ChatReq) (
 		return nil, errors.Wrap(err, "获取历史消息失败")
 	}
 
-	// 如果指定了知识库，检索相关知识
+	// 智能知识库检索：第一次问话检索知识库，后续问话检查历史记录避免重复加载
 	var knowledgeContext string
 	if req.KnowledgeKey != "" {
-		knowledgeContext = s.retrieveKnowledge(ctx, req.KnowledgeKey, req.Message, user)
+		knowledgeContext = s.retrieveKnowledgeWithHistory(ctx, req.KnowledgeKey, req.Message, user, session.SessionID)
 	}
 
 	// 创建响应通道
@@ -287,12 +278,13 @@ func (s *ChatService) SendMessageStream(ctx context.Context, req *dto.ChatReq) (
 
 		// 保存完整的AI回复
 		aiMessage := &model.ChatMessage{
-			SessionID: session.SessionID,
-			Role:      "assistant",
-			Content:   content.String(),
-			Model:     req.Model,
-			Router:    req.Router,
-			User:      user,
+			SessionID:    session.SessionID,
+			Role:         "assistant",
+			Content:      content.String(),
+			Model:        req.Model,
+			Router:       req.Router,
+			KnowledgeKey: req.KnowledgeKey,
+			User:         user,
 		}
 		// 处理usage字段
 		var promptTokens, completionTokens, totalTokens int
@@ -445,11 +437,18 @@ func (s *ChatService) UpdateSessionTitle(ctx context.Context, req *dto.UpdateSes
 }
 
 // getOrCreateSession 获取或创建会话
-func (s *ChatService) getOrCreateSession(ctx context.Context, sessionID, user, modelName, router string) (*model.ChatSession, error) {
+func (s *ChatService) getOrCreateSession(ctx context.Context, sessionID, user, modelName, router, knowledgeKey string) (*model.ChatSession, error) {
 	if sessionID != "" {
 		// 尝试获取现有会话
 		session, err := s.sessionRepo.GetBySessionID(ctx, sessionID, user)
 		if err == nil {
+			// 如果传入了新的knowledge_key且与现有会话不同，更新会话
+			if knowledgeKey != "" && session.KnowledgeKey != knowledgeKey {
+				session.KnowledgeKey = knowledgeKey
+				if err := s.sessionRepo.Update(ctx, session); err != nil {
+					logger.Warnf(ctx, "更新会话知识库失败: %v", err)
+				}
+			}
 			return session, nil
 		}
 		if !errors.Is(err, gorm.ErrRecordNotFound) {
@@ -471,6 +470,7 @@ func (s *ChatService) getOrCreateSession(ctx context.Context, sessionID, user, m
 		Title:        title,
 		Model:        modelName,
 		Router:       router,
+		KnowledgeKey: knowledgeKey,
 		MessageCount: 0,
 		User:         user,
 	}
@@ -518,24 +518,82 @@ func (s *ChatService) generateSessionTitleFromMessage(ctx context.Context, messa
 	return title
 }
 
-// retrieveKnowledge 检索知识库内容
-func (s *ChatService) retrieveKnowledge(ctx context.Context, knowledgeKey, query, user string) string {
+// retrieveKnowledgeWithHistory 智能知识库检索（带历史记录检查）
+func (s *ChatService) retrieveKnowledgeWithHistory(ctx context.Context, knowledgeKey, query, user, sessionID string) string {
+	logger.Infof(ctx, "[知识库检索] 开始检查知识库: %s, 会话: %s", knowledgeKey, sessionID)
+
 	// 检查知识库是否存在
 	_, err := s.knowledgeBaseRepo.GetByKBKey(ctx, knowledgeKey, user)
 	if err != nil {
-		logger.Warnf(ctx, "知识库不存在或无权访问: %s, error: %v", knowledgeKey, err)
+		logger.Warnf(ctx, "[知识库检索] 知识库不存在或无权访问: %s, error: %v", knowledgeKey, err)
+		return ""
+	}
+	logger.Infof(ctx, "[知识库检索] 知识库存在，继续检查历史记录")
+
+	// 检查历史消息中是否已经使用过相同的知识库
+	hasUsed := s.hasKnowledgeBeenUsedInHistory(ctx, sessionID, user, knowledgeKey)
+	logger.Infof(ctx, "[知识库检索] 历史记录检查结果: %v", hasUsed)
+
+	if hasUsed {
+		logger.Infof(ctx, "[知识库检索] 知识库 %s 已在历史记录中使用过，跳过重复加载", knowledgeKey)
+		return ""
+	}
+
+	// 第一次使用该知识库，进行检索
+	logger.Infof(ctx, "[知识库检索] 首次使用知识库 %s，开始检索内容", knowledgeKey)
+	knowledgeContext := s.retrieveKnowledge(ctx, knowledgeKey, query, user)
+	logger.Infof(ctx, "[知识库检索] 检索完成，内容长度: %d", len(knowledgeContext))
+	return knowledgeContext
+}
+
+// hasKnowledgeBeenUsedInHistory 检查历史记录中是否已经使用过指定的知识库
+func (s *ChatService) hasKnowledgeBeenUsedInHistory(ctx context.Context, sessionID, user, knowledgeKey string) bool {
+	// 获取会话的历史消息（排除当前正在处理的消息）
+	messages, err := s.messageRepo.GetMessagesForLLM(ctx, sessionID, user, 50) // 获取最近50条消息
+	if err != nil {
+		logger.Warnf(ctx, "获取历史消息失败: %v", err)
+		return false
+	}
+
+	logger.Infof(ctx, "[知识库检索] 检查历史消息，共 %d 条", len(messages))
+
+	// 检查历史消息中是否已经使用过相同的knowledgeKey
+	// 注意：这里需要排除当前正在处理的消息，只检查assistant角色的消息
+	for _, msg := range messages {
+		logger.Infof(ctx, "[知识库检索] 检查消息: role=%s, knowledgeKey=%s", msg.Role, msg.KnowledgeKey)
+		// 只检查assistant角色的消息，因为只有assistant消息才会包含知识库内容
+		if msg.Role == "assistant" && msg.KnowledgeKey == knowledgeKey {
+			logger.Infof(ctx, "[知识库检索] 找到匹配的assistant消息，knowledgeKey=%s", msg.KnowledgeKey)
+			return true
+		}
+	}
+
+	logger.Infof(ctx, "[知识库检索] 历史消息中未找到匹配的知识库")
+	return false
+}
+
+// retrieveKnowledge 检索知识库内容
+func (s *ChatService) retrieveKnowledge(ctx context.Context, knowledgeKey, query, user string) string {
+	logger.Infof(ctx, "[知识库检索] 开始检索知识库内容: %s", knowledgeKey)
+
+	// 检查知识库是否存在
+	_, err := s.knowledgeBaseRepo.GetByKBKey(ctx, knowledgeKey, user)
+	if err != nil {
+		logger.Warnf(ctx, "[知识库检索] 知识库不存在或无权访问: %s, error: %v", knowledgeKey, err)
 		return ""
 	}
 
 	// 直接获取知识库中的所有文档，不基于用户问题搜索
 	docs, err := s.documentRepo.List(ctx, knowledgeKey, user, "", 5, 0) // 获取前5个文档
 	if err != nil {
-		logger.Warnf(ctx, "获取知识库文档失败: %v", err)
+		logger.Warnf(ctx, "[知识库检索] 获取知识库文档失败: %v", err)
 		return ""
 	}
 
+	logger.Infof(ctx, "[知识库检索] 找到 %d 个文档", len(docs))
+
 	if len(docs) == 0 {
-		logger.Infof(ctx, "知识库 %s 中没有文档", knowledgeKey)
+		logger.Infof(ctx, "[知识库检索] 知识库 %s 中没有文档", knowledgeKey)
 		return ""
 	}
 
@@ -550,6 +608,7 @@ func (s *ChatService) retrieveKnowledge(ctx context.Context, knowledgeKey, query
 		contextBuilder.WriteString("\n")
 	}
 
-	logger.Infof(ctx, "成功加载知识库 %s 的 %d 个文档", knowledgeKey, len(docs))
-	return contextBuilder.String()
+	context := contextBuilder.String()
+	logger.Infof(ctx, "[知识库检索] 成功构建知识库上下文，长度: %d", len(context))
+	return context
 }

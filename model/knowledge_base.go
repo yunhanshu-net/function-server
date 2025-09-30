@@ -9,6 +9,7 @@ type KnowledgeBase struct {
 	Router        string `json:"router" gorm:"column:router;comment:关联路由"`
 	Status        string `json:"status" gorm:"column:status;comment:状态(active/inactive)"`
 	DocumentCount int    `json:"document_count" gorm:"column:document_count;comment:文档数量"`
+	ContentHash   string `json:"content_hash" gorm:"column:content_hash;type:varchar(64);comment:知识库内容哈希值"`
 	User          string `json:"user" gorm:"column:user;comment:创建用户"`
 }
 

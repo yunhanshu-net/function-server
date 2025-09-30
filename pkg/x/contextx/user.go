@@ -36,6 +36,7 @@ func GetFunctionID(ctx context.Context) int {
 	v, ok := ctx.(*gin.Context)
 	if ok {
 		s := v.GetString(constants.FunctionID)
+
 		i, err := strconv.ParseInt(s, 10, 64)
 		if err != nil {
 			return 0

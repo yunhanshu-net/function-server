@@ -36,7 +36,8 @@ func Init() *gin.Engine {
 	r.Use(gin.Recovery())
 	//r.Use(pkgmiddleware.Logger())
 	r.Use(pkgmiddleware.Cors())
-	r.Use(middleware.WithTraceID()) // 添加跟踪ID中间件
+	r.Use(middleware.WithTraceID())    // 添加跟踪ID中间件
+	r.Use(middleware.WithFunctionID()) // 添加函数id
 
 	// API版本v1
 	apiV1 := r.Group("/api/v1")
@@ -169,15 +170,16 @@ func Init() *gin.Engine {
 		knowledgeBaseAPI := v1.NewKnowledgeBaseAPI(service.NewKnowledgeBaseService(db.GetDB()))
 		knowledgeBase := apiV1.Group("/knowledge-base")
 		{
-			knowledgeBase.POST("", knowledgeBaseAPI.CreateKnowledgeBase)      // 创建知识库
-			knowledgeBase.PUT("", knowledgeBaseAPI.UpdateKnowledgeBase)       // 更新知识库
-			knowledgeBase.DELETE("", knowledgeBaseAPI.DeleteKnowledgeBase)    // 删除知识库
-			knowledgeBase.GET("/detail", knowledgeBaseAPI.GetKnowledgeBase)   // 获取知识库详情
-			knowledgeBase.GET("/list", knowledgeBaseAPI.ListKnowledgeBases)   // 获取知识库列表
-			knowledgeBase.POST("/documents", knowledgeBaseAPI.UploadDocument) // 上传文档
-			knowledgeBase.PUT("/documents", knowledgeBaseAPI.UpdateDocument)  // 更新文档
-			knowledgeBase.GET("/documents", knowledgeBaseAPI.ListDocuments)   // 获取文档列表
-			knowledgeBase.POST("/search", knowledgeBaseAPI.SearchKnowledge)   // 搜索知识库
+			knowledgeBase.POST("", knowledgeBaseAPI.CreateKnowledgeBase)        // 创建知识库
+			knowledgeBase.PUT("", knowledgeBaseAPI.UpdateKnowledgeBase)         // 更新知识库
+			knowledgeBase.DELETE("", knowledgeBaseAPI.DeleteKnowledgeBase)      // 删除知识库
+			knowledgeBase.GET("/detail", knowledgeBaseAPI.GetKnowledgeBase)     // 获取知识库详情
+			knowledgeBase.GET("/list", knowledgeBaseAPI.ListKnowledgeBases)     // 获取知识库列表
+			knowledgeBase.POST("/documents", knowledgeBaseAPI.UploadDocument)   // 上传文档
+			knowledgeBase.PUT("/documents", knowledgeBaseAPI.UpdateDocument)    // 更新文档
+			knowledgeBase.DELETE("/documents", knowledgeBaseAPI.DeleteDocument) // 删除文档
+			knowledgeBase.GET("/documents", knowledgeBaseAPI.ListDocuments)     // 获取文档列表
+			knowledgeBase.POST("/search", knowledgeBaseAPI.SearchKnowledge)     // 搜索知识库
 		}
 	}
 

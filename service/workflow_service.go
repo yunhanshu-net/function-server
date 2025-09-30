@@ -350,7 +350,7 @@ func (w *WorkflowService) ListWorkflow(ctx context.Context, req *dto.ListWorkflo
 	// 使用AutoPaginate处理分页和查询条件
 	var list []model.Workflow
 
-	result, err := query.AutoPaginateTable(ctx, db, &model.Workflow{}, &list, &req.PageInfoReq)
+	result, err := query.AutoPaginateTable(ctx, db, &model.Workflow{}, &list, &req.SearchFilterPageReq)
 	if err != nil {
 		return nil, fmt.Errorf("查询工作流列表失败: %v", err)
 	}

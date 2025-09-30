@@ -27,7 +27,7 @@ func (f *FunctionGen) List(c *gin.Context) {
 		return
 	}
 	var list []model.FunctionGen
-	table, err := query.AutoPaginateTable(c, db.GetDB(), &model.FunctionGen{}, &list, &req.PageInfoReq)
+	table, err := query.AutoPaginateTable(c, db.GetDB(), &model.FunctionGen{}, &list, &req.SearchFilterPageReq)
 	if err != nil {
 		response.ServerError(c, err.Error())
 		return
@@ -59,7 +59,7 @@ func (api *RunnerFuncAPI) GeneratingList(c *gin.Context) {
 	table, err := query.AutoPaginateTable(c,
 		db.GetDB().Omit("code,update_code").
 			Where("runner_id = ?", req.RunnerID).Order("created_at desc"),
-		&model.FunctionGen{}, &list, &req.PageInfoReq)
+		&model.FunctionGen{}, &list, &req.SearchFilterPageReq)
 	if err != nil {
 		response.ServerError(c, err.Error())
 		return

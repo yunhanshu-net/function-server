@@ -106,7 +106,7 @@ func (api *RunnerFuncAPI) List(c *gin.Context) {
 
 	getDB := db.GetDB().Where("user = ?", c.GetString("user"))
 	var runnerFunctions []*model.RunnerFunc
-	paginate, err := query.AutoPaginateTable(c, getDB, &model.RunnerFunc{}, &runnerFunctions, &req.PageInfoReq)
+	paginate, err := query.AutoPaginateTable(c, getDB, &model.RunnerFunc{}, &runnerFunctions, &req.SearchFilterPageReq)
 	if err != nil {
 		response.ServerError(c, err.Error())
 		return
@@ -249,7 +249,7 @@ func (api *RunnerFuncAPI) GetFuncRecord(c *gin.Context) {
 	d := db.GetDB().Where("func_id = ?", f)
 
 	var list []model.FuncRunRecord
-	paginate, err := query.AutoPaginateTable(c, d, &model.FuncRunRecord{}, &list, &req.PageInfoReq)
+	paginate, err := query.AutoPaginateTable(c, d, &model.FuncRunRecord{}, &list, &req.SearchFilterPageReq)
 	if err != nil {
 		response.ServerError(c, err.Error())
 		return

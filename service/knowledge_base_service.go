@@ -2,6 +2,8 @@ package service
 
 import (
 	"context"
+	"crypto/md5"
+	"fmt"
 	"strings"
 
 	"github.com/google/uuid"
@@ -219,6 +221,11 @@ func (s *KnowledgeBaseService) UploadDocument(ctx context.Context, req *dto.Know
 		logger.Warnf(ctx, "更新知识库文档数量失败: %v", err)
 	}
 
+	// 更新知识库内容哈希值
+	if err := s.updateKnowledgeContentHash(ctx, req.KBKey, user); err != nil {
+		logger.Warnf(ctx, "更新知识库内容哈希值失败: %v", err)
+	}
+
 	return &dto.KnowledgeDocumentResp{KnowledgeDocument: doc}, nil
 }
 
@@ -252,11 +259,42 @@ func (s *KnowledgeBaseService) UpdateDocument(ctx context.Context, req *dto.Know
 		return nil, errors.Wrap(err, "更新文档失败")
 	}
 
+	// 更新知识库内容哈希值
+	if err := s.updateKnowledgeContentHash(ctx, doc.KBKey, user); err != nil {
+		logger.Warnf(ctx, "更新知识库内容哈希值失败: %v", err)
+	}
+
 	return &dto.KnowledgeDocumentUpdateResp{
 		DocID:     doc.DocID,
 		Title:     doc.Title,
 		UpdatedAt: doc.UpdatedAt.String(),
 	}, nil
+}
+
+// DeleteDocument 删除文档
+func (s *KnowledgeBaseService) DeleteDocument(ctx context.Context, req *dto.KnowledgeDocumentDeleteReq) error {
+	user := contextx.GetRequestUserName(ctx)
+	if user == "" {
+		return errors.New("用户未登录")
+	}
+
+	// 检查文档是否存在并获取文档信息
+	doc, err := s.documentRepo.GetByDocID(ctx, req.DocID, user)
+	if err != nil {
+		return errors.Wrap(err, "文档不存在")
+	}
+
+	// 删除文档
+	if err := s.documentRepo.Delete(ctx, req.DocID, user); err != nil {
+		return errors.Wrap(err, "删除文档失败")
+	}
+
+	// 更新知识库内容哈希值
+	if err := s.updateKnowledgeContentHash(ctx, doc.KBKey, user); err != nil {
+		logger.Warnf(ctx, "更新知识库内容哈希值失败: %v", err)
+	}
+
+	return nil
 }
 
 // ListDocuments 获取文档列表
@@ -359,4 +397,35 @@ func (s *KnowledgeBaseService) generateKBKey(name string) string {
 	}
 
 	return key
+}
+
+// updateKnowledgeContentHash 更新知识库内容哈希值
+func (s *KnowledgeBaseService) updateKnowledgeContentHash(ctx context.Context, kbKey, user string) error {
+	// 获取知识库中的所有文档
+	docs, err := s.documentRepo.List(ctx, kbKey, user, "", 100, 0) // 获取所有文档用于计算hash
+	if err != nil {
+		return errors.Wrap(err, "获取知识库文档失败")
+	}
+
+	if len(docs) == 0 {
+		// 如果没有文档，清空hash
+		return s.knowledgeBaseRepo.UpdateContentHash(ctx, kbKey, user, "")
+	}
+
+	// 构建用于计算hash的内容
+	var contentBuilder strings.Builder
+	for _, doc := range docs {
+		contentBuilder.WriteString(doc.DocID)
+		contentBuilder.WriteString(doc.Title)
+		contentBuilder.WriteString(doc.Content)
+		contentBuilder.WriteString(doc.FileType)
+		contentBuilder.WriteString(fmt.Sprintf("%d", doc.FileSize))
+	}
+
+	// 计算MD5 hash
+	hash := md5.Sum([]byte(contentBuilder.String()))
+	contentHash := fmt.Sprintf("%x", hash)
+
+	// 更新知识库的hash
+	return s.knowledgeBaseRepo.UpdateContentHash(ctx, kbKey, user, contentHash)
 }

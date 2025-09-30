@@ -97,7 +97,7 @@ type GetWorkflowDetailResp struct {
 
 // ListWorkflowReq 获取工作流列表请求
 type ListWorkflowReq struct {
-	query.PageInfoReq
+	query.SearchFilterPageReq
 	Name   string `form:"name"`   // 工作流名称（模糊查询）
 	Status string `form:"status"` // 工作流状态
 }

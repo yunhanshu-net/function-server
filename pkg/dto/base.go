@@ -12,5 +12,5 @@ type BaseRequest struct {
 // BasePaginatedRequest 基础分页请求结构体
 type BasePaginatedRequest struct {
 	BaseRequest
-	query.PageInfoReq // 嵌入分页信息
+	query.SearchFilterPageReq // 嵌入分页信息
 }

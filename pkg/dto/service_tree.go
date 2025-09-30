@@ -13,7 +13,7 @@ type GetByFullPathReq struct {
 }
 
 type Search struct {
-	query.PageInfoReq
+	query.SearchFilterPageReq
 	Type string `json:"type" form:"type"`
 }
 

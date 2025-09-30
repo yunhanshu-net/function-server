@@ -286,7 +286,7 @@ func (r *FunctionExecuteCase) Query(ctx context.Context, req dto.QueryFunctionEx
 
 	// 使用AutoPaginate处理分页和查询条件
 	var list []*model.FunctionExecuteCase
-	result, err := query.AutoPaginateTable(ctx, db, &model.FunctionExecuteCase{}, &list, &req.PageInfoReq)
+	result, err := query.AutoPaginateTable(ctx, db, &model.FunctionExecuteCase{}, &list, &req.SearchFilterPageReq)
 	if err != nil {
 		return nil, err
 	}
@@ -413,7 +413,7 @@ func (r *FunctionExecuteCase) QueryRecords(ctx context.Context, req dto.QueryFun
 
 	// 使用AutoPaginate处理分页和查询条件
 	var list []model.FunctionExecuteCaseRecord
-	result, err := query.AutoPaginateTable(ctx, db, &model.FunctionExecuteCaseRecord{}, &list, &req.PageInfoReq)
+	result, err := query.AutoPaginateTable(ctx, db, &model.FunctionExecuteCaseRecord{}, &list, &req.SearchFilterPageReq)
 	if err != nil {
 		return nil, err
 	}

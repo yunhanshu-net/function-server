@@ -66,8 +66,8 @@ func (resp *CreateRunnerFuncResp) FromModel(runnerFunc *model.RunnerFunc) {
 // ===========================================================================
 
 type GetFuncRecord struct {
-	//base.PageInfoReq // 嵌入分页信息
-	query.PageInfoReq
+	//base.SearchFilterPageReq // 嵌入分页信息
+	query.SearchFilterPageReq
 }
 
 // GetRunnerFuncReq 获取函数详情请求
@@ -191,7 +191,7 @@ type DeleteRunnerFuncResp struct {
 // ListRunnerFuncReq 获取函数列表请求
 type ListRunnerFuncReq struct {
 	//BasePaginatedRequest
-	query.PageInfoReq
+	query.SearchFilterPageReq
 	User     string `json:"user" form:"user"`           // 用户名过滤
 	RunnerID int64  `json:"runner_id" form:"runner_id"` // 所属Runner ID过滤
 	TreeID   int64  `json:"tree_id" form:"tree_id"`     // 所属目录 ID过滤
@@ -399,7 +399,7 @@ type UpdateStatusResp struct {
 // GetUserRecentFuncRecordsReq 获取用户最近执行函数记录请求
 type GetUserRecentFuncRecordsReq struct {
 	BaseRequest
-	query.PageInfoReq
+	query.SearchFilterPageReq
 	User string `json:"user" form:"user"` // 用户名，从中间件获取
 }
 

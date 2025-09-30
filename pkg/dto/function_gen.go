@@ -6,7 +6,7 @@ import "github.com/yunhanshu-net/pkg/query"
 type FunctionGenListReq struct {
 	RunnerID int64 `json:"runner_id" form:"runner_id"`
 
-	query.PageInfoReq
+	query.SearchFilterPageReq
 }
 
 type FunctionGenReq struct {

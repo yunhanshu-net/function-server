@@ -4,6 +4,7 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
 	"github.com/yunhanshu-net/pkg/constants"
+	"strings"
 	"time"
 )
 
@@ -22,6 +23,23 @@ func WithTraceID() gin.HandlerFunc {
 		c.Header(constants.HttpTraceID, traceID)
 		// 将跟踪ID存储在gin.Context中，这样可以直接通过context获取
 		c.Set(constants.TraceID, traceID)
+		c.Next()
+	}
+}
+
+// WithFunctionID 为请求添加Function-ID
+func WithFunctionID() gin.HandlerFunc {
+	return func(c *gin.Context) {
+		// 检查请求头中是否已有跟踪ID
+		functionID := c.GetHeader(constants.FunctionID)
+		if functionID == "" {
+			functionID = c.GetHeader(strings.ToLower(constants.FunctionID))
+		}
+
+		// 在响应头中也返回跟踪ID
+		c.Header(constants.FunctionID, functionID)
+		// 将跟踪ID存储在gin.Context中，这样可以直接通过context获取
+		c.Set(constants.FunctionID, functionID)
 		c.Next()
 	}
 }

@@ -63,6 +63,11 @@ type KnowledgeDocumentUpdateResp struct {
 	UpdatedAt string `json:"updated_at"` // 更新时间
 }
 
+// KnowledgeDocumentDeleteReq 删除文档请求
+type KnowledgeDocumentDeleteReq struct {
+	DocID string `json:"doc_id" form:"doc_id" validate:"required"` // 文档ID
+}
+
 // KnowledgeDocumentResp 文档响应
 type KnowledgeDocumentResp struct {
 	*model.KnowledgeDocument
