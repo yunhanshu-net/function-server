@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"github.com/yunhanshu-net/function-server/pkg/x/contextx"
 	"sync"
 	"time"
 
@@ -45,11 +46,13 @@ type RuncherService interface {
 
 // runcherService Runcher服务实现
 type runcherService struct {
-	nc         *nats.Conn
-	sub        *nats.Subscription
-	subRunner  *nats.Subscription
-	timeout    time.Duration
-	messageMap map[string]chan *nats.Msg
+	nc              *nats.Conn
+	sub             *nats.Subscription
+	subRunner       *nats.Subscription
+	subFunctionCall *nats.Subscription
+	timeout         time.Duration
+	messageMap      map[string]chan *nats.Msg
+	mu              sync.RWMutex // 保护 messageMap 的并发访问
 }
 
 func (s *runcherService) PublishFunctionRuntime(msg string) error {
@@ -89,16 +92,51 @@ func (s *runcherService) SubFunctionRunner() error {
 		fmt.Printf("Function server Subscribe msg:%s\n", msg.Data)
 		fmt.Printf("Function server Subscribe msg:%s\n", msg.Data)
 		tid := msg.Header.Get(constants.TraceID)
+
+		s.mu.Lock()
 		if s.messageMap[tid] == nil {
 			s.messageMap[tid] = make(chan *nats.Msg, 1)
 		}
-		s.messageMap[tid] <- msg
+		ch := s.messageMap[tid]
+		s.mu.Unlock()
+
+		ch <- msg
 		fmt.Printf("Function Runtime Subscribe Success msg:%s\n", msg.Data)
 	})
 	if err != nil {
 		return err
 	}
 	s.subRunner = subscribe
+
+	return nil
+}
+
+type FunctionCallReq struct {
+	Name   string              `json:"name"`
+	Header map[string][]string `json:"header"`
+	Body   []byte              `json:"body"`
+}
+type FunctionCallResp struct {
+	Name   string              `json:"name"`
+	Header map[string][]string `json:"header"`
+	Body   []byte              `json:"body"`
+}
+
+// SubFunctionCall 消费runner的rpc/函数调用
+func (s *runcherService) SubFunctionCall() error {
+	subscribe, err := s.nc.Subscribe("function-runner.function-call", func(msg *nats.Msg) {
+		fmt.Printf("Function server Subscribe msg:%s\n", msg.Data)
+		fmt.Printf("Function server Subscribe msg:%s\n", msg.Data)
+		tid := msg.Header.Get(constants.TraceID)
+
+		//todo 这里调用function-call
+
+		//
+	})
+	if err != nil {
+		return err
+	}
+	s.subFunctionCall = subscribe
 
 	return nil
 }
@@ -250,6 +288,7 @@ func (s *runcherService) RunFunction3(ctx context.Context, req *runcher.RunFunct
 	tid := getTraceID(ctx)
 	header.Set("trace_id", tid)
 	header.Set("user", req.User)
+	header.Set(constants.RequestUserInfo, contextx.GetRequestUserName(ctx))
 	header.Set("runner", req.Runner)
 	header.Set("version", req.Version)
 	header.Set("method", req.Method)
@@ -257,10 +296,16 @@ func (s *runcherService) RunFunction3(ctx context.Context, req *runcher.RunFunct
 	header.Set("url_query", req.RawQuery)
 	msg.Header = header
 
+	s.mu.Lock()
 	s.messageMap[tid] = make(chan *nats.Msg, 1)
+	ch := s.messageMap[tid]
+	s.mu.Unlock()
+
 	defer func() {
+		s.mu.Lock()
 		close(s.messageMap[tid])
 		delete(s.messageMap, tid)
+		s.mu.Unlock()
 	}()
 	err := s.PublishFunctionRuntimeMsg(msg)
 	if err != nil {
@@ -277,7 +322,7 @@ func (s *runcherService) RunFunction3(ctx context.Context, req *runcher.RunFunct
 	case <-time.After(time.Second * 1000):
 		return nil, fmt.Errorf("timeout")
 
-	case resp := <-s.messageMap[tid]:
+	case resp := <-ch:
 		// 解析响应码
 		code := resp.Header.Get("code")
 		if code != "0" {
