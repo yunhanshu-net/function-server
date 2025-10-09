@@ -127,7 +127,7 @@ func (s *runcherService) SubFunctionCall() error {
 	subscribe, err := s.nc.Subscribe("function-runner.function-call", func(msg *nats.Msg) {
 		fmt.Printf("Function server Subscribe msg:%s\n", msg.Data)
 		fmt.Printf("Function server Subscribe msg:%s\n", msg.Data)
-		tid := msg.Header.Get(constants.TraceID)
+		//tid := msg.Header.Get(constants.TraceID)
 
 		//todo 这里调用function-call
 
